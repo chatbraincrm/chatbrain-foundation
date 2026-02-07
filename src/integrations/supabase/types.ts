@@ -150,6 +150,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_tenant_id: string | null
           created_at: string
           email: string
           id: string
@@ -157,6 +158,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_tenant_id?: string | null
           created_at?: string
           email: string
           id: string
@@ -164,13 +166,22 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_tenant_id?: string | null
           created_at?: string
           email?: string
           id?: string
           name?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_active_tenant_id_fkey"
+            columns: ["active_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenants: {
         Row: {
@@ -202,6 +213,14 @@ export type Database = {
     }
     Functions: {
       accept_invite: { Args: { _token: string }; Returns: Json }
+      create_invite: {
+        Args: {
+          _email: string
+          _role?: Database["public"]["Enums"]["app_role"]
+          _tenant_id: string
+        }
+        Returns: Json
+      }
       create_tenant_with_admin: {
         Args: { _name: string; _slug: string }
         Returns: Json
@@ -226,6 +245,16 @@ export type Database = {
       is_tenant_member: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
+      }
+      log_audit_event: {
+        Args: {
+          _action: string
+          _entity?: string
+          _entity_id?: string
+          _metadata?: Json
+          _tenant_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
