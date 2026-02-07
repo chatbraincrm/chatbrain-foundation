@@ -1,73 +1,80 @@
-# Welcome to your Lovable project
+# CHATBRAIN
 
-## Project info
+SaaS multi-tenant com React SPA + Vite + Lovable Cloud.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- **Frontend**: React 18 · Vite · TypeScript · Tailwind CSS · shadcn/ui
+- **Backend**: Lovable Cloud (Supabase) — Auth, Database (RLS), Edge Functions
+- **ORM**: Drizzle ORM (schema-first, migrations via Drizzle Kit)
+- **Validação**: Zod
+- **State**: React Context (Auth, Tenant) + TanStack Query
 
-There are several ways of editing your application.
+## Estrutura do Projeto
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+src/
+├── db/schema/          # Drizzle schema (source of truth)
+│   ├── enums.ts
+│   ├── profiles.ts
+│   ├── tenants.ts
+│   ├── memberships.ts
+│   ├── invites.ts
+│   ├── audit-logs.ts
+│   └── index.ts
+├── lib/                # Infraestrutura (auth, tenant, rbac, validators)
+├── modules/            # Camada de dados (API/repository por domínio)
+│   ├── audit/
+│   ├── invites/
+│   ├── memberships/
+│   └── tenants/
+├── components/         # Componentes de UI
+├── pages/              # Rotas/telas
+└── types/              # Tipos compartilhados
 ```
 
-**Edit a file directly in GitHub**
+## Drizzle ORM
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+O schema Drizzle em `src/db/schema/` é o **source of truth** para a estrutura do banco de dados.
 
-**Use GitHub Codespaces**
+### Configuração
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+O arquivo `drizzle.config.ts` na raiz do projeto aponta para o schema e usa a variável `SUPABASE_DB_URL`.
 
-## What technologies are used for this project?
+### Comandos de Migration
 
-This project is built with:
+```bash
+# Gerar migrations a partir de mudanças no schema
+npx drizzle-kit generate
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Aplicar migrations pendentes
+npx drizzle-kit migrate
 
-## How can I deploy this project?
+# Visualizar diff entre schema e banco
+npx drizzle-kit push
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+# Abrir o Drizzle Studio para inspecionar o banco
+npx drizzle-kit studio
+```
 
-## Can I connect a custom domain to my Lovable project?
+### Fluxo de trabalho
 
-Yes, you can!
+1. Altere o schema TypeScript em `src/db/schema/`
+2. Execute `npx drizzle-kit generate` para gerar a migration SQL
+3. Revise a migration gerada em `drizzle/`
+4. Execute `npx drizzle-kit migrate` para aplicar
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Segurança
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- **RLS** habilitado em todas as tabelas com políticas por tenant
+- **RBAC** com papéis: `admin`, `manager`, `agent`
+- **RPCs SECURITY DEFINER** para operações sensíveis:
+  - `create_tenant_with_admin` — cria tenant + membership admin atomicamente
+  - `accept_invite` — aceita convite com validação de token/expiração
+  - `create_invite` — cria convite com validação, geração de token e audit log
+  - `log_audit_event` — registra evento de auditoria (único caminho para INSERT em audit_logs)
+- Writes em `invites` e `audit_logs` **não possuem** políticas de INSERT direto; toda escrita passa por RPCs
+
+## Tenant Ativo
+
+A persistência do tenant ativo usa `profiles.active_tenant_id` (com fallback temporário para localStorage).

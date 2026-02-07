@@ -22,16 +22,12 @@ export async function createAuditLog(
   entityId?: string,
   metadata?: Record<string, unknown>
 ) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-
-  const { error } = await supabase.from('audit_logs').insert({
-    tenant_id: tenantId,
-    actor_user_id: user.id,
-    action,
-    entity,
-    entity_id: entityId,
-    metadata,
+  const { error } = await supabase.rpc('log_audit_event' as never, {
+    _tenant_id: tenantId,
+    _action: action,
+    _entity: entity ?? null,
+    _entity_id: entityId ?? null,
+    _metadata: metadata ?? null,
   } as never);
   if (error) throw error;
 }

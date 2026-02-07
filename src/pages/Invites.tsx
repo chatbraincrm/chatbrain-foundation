@@ -32,7 +32,7 @@ export default function Invites() {
 
   const createMutation = useMutation({
     mutationFn: () => createInvite(currentTenant!.id, email, role),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['invites'] });
       setEmail('');
       setRole('agent');

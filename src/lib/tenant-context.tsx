@@ -12,8 +12,6 @@ interface TenantContextType {
   refreshTenants: () => Promise<void>;
 }
 
-const TENANT_STORAGE_KEY = 'chatbrain_active_tenant_id';
-
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
@@ -33,6 +31,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     setMembership(data ? { ...data, role: data.role as AppRole } as Membership : null);
   }, []);
 
+  const persistActiveTenant = useCallback(async (tenantId: string) => {
+    if (!user) return;
+    await supabase
+      .from('profiles')
+      .update({ active_tenant_id: tenantId } as never)
+      .eq('id', user.id);
+  }, [user]);
+
   const fetchTenants = useCallback(async () => {
     if (!user) {
       setTenants([]);
@@ -42,17 +48,21 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const { data, error } = await supabase.from('tenants').select('*');
+    const [{ data: tenantData, error }, { data: profileData }] = await Promise.all([
+      supabase.from('tenants').select('*'),
+      supabase.from('profiles').select('active_tenant_id').eq('id', user.id).maybeSingle(),
+    ]);
+
     if (error) {
       console.error('Failed to fetch tenants:', error);
       setLoading(false);
       return;
     }
 
-    const tenantList = (data || []) as unknown as Tenant[];
+    const tenantList = (tenantData || []) as unknown as Tenant[];
     setTenants(tenantList);
 
-    const savedTenantId = localStorage.getItem(TENANT_STORAGE_KEY);
+    const savedTenantId = (profileData as any)?.active_tenant_id || localStorage.getItem('chatbrain_active_tenant_id');
     const savedTenant = tenantList.find(t => t.id === savedTenantId);
 
     if (savedTenant) {
@@ -60,20 +70,22 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       await fetchMembership(savedTenant.id, user.id);
     } else if (tenantList.length === 1) {
       setCurrentTenantState(tenantList[0]);
-      localStorage.setItem(TENANT_STORAGE_KEY, tenantList[0].id);
+      persistActiveTenant(tenantList[0].id);
       await fetchMembership(tenantList[0].id, user.id);
     }
 
     setLoading(false);
-  }, [user, fetchMembership]);
+  }, [user, fetchMembership, persistActiveTenant]);
 
   const setCurrentTenant = useCallback((tenant: Tenant) => {
     setCurrentTenantState(tenant);
-    localStorage.setItem(TENANT_STORAGE_KEY, tenant.id);
+    persistActiveTenant(tenant.id);
+    // Fallback for localStorage during transition
+    localStorage.setItem('chatbrain_active_tenant_id', tenant.id);
     if (user) {
       fetchMembership(tenant.id, user.id);
     }
-  }, [user, fetchMembership]);
+  }, [user, fetchMembership, persistActiveTenant]);
 
   const refreshTenants = useCallback(async () => {
     await fetchTenants();

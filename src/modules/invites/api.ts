@@ -11,21 +11,15 @@ export async function getTenantInvites(tenantId: string) {
 }
 
 export async function createInvite(tenantId: string, email: string, role: string) {
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
-
-  const { data, error } = await supabase
-    .from('invites')
-    .insert({
-      tenant_id: tenantId,
-      email,
-      role,
-      expires_at: expiresAt.toISOString(),
-    } as never)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('create_invite', {
+    _tenant_id: tenantId,
+    _email: email,
+    _role: role,
+  } as never);
   if (error) throw error;
-  return data;
+  const result = data as unknown as { ok: boolean; data?: { id: string; token: string; expires_at: string }; error?: { message: string } };
+  if (!result.ok) throw new Error(result.error?.message || 'Erro ao criar convite');
+  return result.data!;
 }
 
 export async function deleteInvite(id: string) {
