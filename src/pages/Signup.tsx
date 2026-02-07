@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import { signupSchema } from '@/lib/validators';
 import { Button } from '@/components/ui/button';
@@ -14,11 +14,19 @@ export default function Signup() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const location = useLocation();
-  const redirect = new URLSearchParams(location.search).get('redirect') || '';
-  const redirectParam = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
+  const redirect = new URLSearchParams(location.search).get('redirect') || '/dashboard';
+  const redirectParam = redirect !== '/dashboard' ? `?redirect=${encodeURIComponent(redirect)}` : '';
+
+  // If user becomes authenticated (auto-confirm), redirect
+  useEffect(() => {
+    if (user) {
+      navigate(redirect, { replace: true });
+    }
+  }, [user, navigate, redirect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
