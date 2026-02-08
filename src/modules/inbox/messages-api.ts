@@ -41,13 +41,17 @@ export async function sendMessage(
     .update({ last_message_at: message.created_at } as never)
     .eq('id', threadId);
 
-  // Log message event via RPC
-  await supabase.rpc('log_message_event' as never, {
-    _tenant_id: tenantId,
-    _thread_id: threadId,
-    _message_id: message.id,
-    _sender_type: 'user',
-  } as never);
+  // Log message event via RPC (fail-safe – may not exist on external Supabase)
+  try {
+    await supabase.rpc('log_message_event' as never, {
+      _tenant_id: tenantId,
+      _thread_id: threadId,
+      _message_id: message.id,
+      _sender_type: 'user',
+    } as never);
+  } catch (rpcErr) {
+    console.warn('[messages-api] log_message_event RPC unavailable, skipping:', rpcErr);
+  }
 
   return message;
 }

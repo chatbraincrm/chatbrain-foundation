@@ -22,12 +22,16 @@ export async function createAuditLog(
   entityId?: string,
   metadata?: Record<string, unknown>
 ) {
-  const { error } = await supabase.rpc('log_audit_event' as never, {
-    _tenant_id: tenantId,
-    _action: action,
-    _entity: entity ?? null,
-    _entity_id: entityId ?? null,
-    _metadata: metadata ?? null,
-  } as never);
-  if (error) throw error;
+  try {
+    const { error } = await supabase.rpc('log_audit_event' as never, {
+      _tenant_id: tenantId,
+      _action: action,
+      _entity: entity ?? null,
+      _entity_id: entityId ?? null,
+      _metadata: metadata ?? null,
+    } as never);
+    if (error) throw error;
+  } catch (err) {
+    console.warn('[audit] log_audit_event RPC unavailable, skipping:', err);
+  }
 }
