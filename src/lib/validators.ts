@@ -89,6 +89,18 @@ export const createTagSchema = z.object({
   color: z.string().nullable().optional(),
 });
 
+// Inbox validators
+export const createThreadSchema = z.object({
+  channel_id: z.string().uuid('Canal inválido'),
+  subject: z.string().trim().max(200, 'Assunto muito longo').nullable().optional(),
+  related_entity: z.enum(['lead', 'deal', 'company']).nullable().optional(),
+  related_entity_id: z.string().uuid().nullable().optional(),
+});
+
+export const sendMessageSchema = z.object({
+  content: z.string().trim().min(1, 'Mensagem não pode ser vazia').max(5000, 'Mensagem muito longa'),
+});
+
 // Inferred types
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
@@ -104,3 +116,5 @@ export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 export type CreateDealInput = z.infer<typeof createDealSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type CreateTagInput = z.infer<typeof createTagSchema>;
+export type CreateThreadInput = z.infer<typeof createThreadSchema>;
+export type SendMessageInput = z.infer<typeof sendMessageSchema>;

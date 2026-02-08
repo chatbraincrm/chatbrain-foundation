@@ -176,6 +176,68 @@ export interface EntityTag {
   created_at: string;
 }
 
+// Inbox Types
+
+export type ChannelType = 'internal' | 'whatsapp' | 'email' | 'instagram';
+export type ThreadStatus = 'open' | 'closed' | 'archived';
+export type SenderType = 'user' | 'system' | 'external';
+
+export interface Channel {
+  id: string;
+  tenant_id: string;
+  type: ChannelType;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Thread {
+  id: string;
+  tenant_id: string;
+  channel_id: string;
+  subject: string | null;
+  status: ThreadStatus;
+  assigned_user_id: string | null;
+  related_entity: string | null;
+  related_entity_id: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreadWithRelations extends Thread {
+  channels?: Pick<Channel, 'id' | 'type' | 'name'> | null;
+  profiles?: Pick<Profile, 'id' | 'email' | 'name'> | null;
+}
+
+export interface ThreadParticipant {
+  id: string;
+  tenant_id: string;
+  thread_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface ThreadParticipantWithProfile extends ThreadParticipant {
+  profiles: Pick<Profile, 'id' | 'email' | 'name'> | null;
+}
+
+export interface Message {
+  id: string;
+  tenant_id: string;
+  thread_id: string;
+  sender_type: SenderType;
+  sender_user_id: string | null;
+  content: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface MessageWithProfile extends Message {
+  profiles: Pick<Profile, 'id' | 'email' | 'name'> | null;
+}
+
 export interface ApiResponse<T = unknown> {
   ok: boolean;
   data?: T;

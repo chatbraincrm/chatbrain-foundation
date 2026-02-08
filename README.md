@@ -30,6 +30,10 @@ src/
 │   ├── activity-timeline.ts
 │   ├── tags.ts
 │   ├── entity-tags.ts
+│   ├── channels.ts
+│   ├── threads.ts
+│   ├── thread-participants.ts
+│   ├── messages.ts
 │   └── index.ts
 ├── lib/                # Infraestrutura (auth, tenant, rbac, validators)
 ├── modules/            # Camada de dados (API/repository por domínio)
@@ -37,25 +41,29 @@ src/
 │   ├── invites/
 │   ├── memberships/
 │   ├── tenants/
-│   └── crm/            # CRM repositories
-│       ├── pipelines-api.ts
-│       ├── companies-api.ts
-│       ├── leads-api.ts
-│       ├── deals-api.ts
-│       ├── tasks-api.ts
-│       ├── tags-api.ts
-│       └── timeline-api.ts
+│   ├── crm/            # CRM repositories
+│   │   ├── pipelines-api.ts
+│   │   ├── companies-api.ts
+│   │   ├── leads-api.ts
+│   │   ├── deals-api.ts
+│   │   ├── tasks-api.ts
+│   │   ├── tags-api.ts
+│   │   └── timeline-api.ts
+│   └── inbox/          # Inbox repositories
+│       ├── channels-api.ts
+│       ├── threads-api.ts
+│       ├── messages-api.ts
+│       └── participants-api.ts
 ├── components/         # Componentes de UI
+│   ├── inbox/          # Inbox components
+│   │   ├── CreateThreadDialog.tsx
+│   │   └── ThreadLastMessage.tsx
+│   └── ...
 ├── pages/              # Rotas/telas
 │   ├── crm/            # CRM pages
-│   │   ├── Pipelines.tsx
-│   │   ├── Leads.tsx
-│   │   ├── LeadDetail.tsx
-│   │   ├── Companies.tsx
-│   │   ├── CompanyDetail.tsx
-│   │   ├── DealsKanban.tsx
-│   │   ├── DealDetail.tsx
-│   │   └── Tasks.tsx
+│   ├── inbox/          # Inbox pages
+│   │   ├── InboxList.tsx
+│   │   └── ThreadDetail.tsx
 │   └── ...
 └── types/              # Tipos compartilhados
 ```
@@ -96,14 +104,15 @@ npx drizzle-kit studio
 - **RLS** habilitado em todas as tabelas com políticas por tenant
 - **RBAC** com papéis: `admin`, `manager`, `agent`
   - `admin`: acesso total
-  - `manager`: leitura de membros/convites/audit + CRM completo
-  - `agent`: CRM (leitura + escrita própria, sem delete) + leitura básica
+  - `manager`: leitura de membros/convites/audit + CRM completo + Inbox completo
+  - `agent`: CRM (leitura + escrita própria, sem delete) + Inbox (leitura + envio de mensagens) + leitura básica
 - **RPCs SECURITY DEFINER** para operações sensíveis:
-  - `create_tenant_with_admin` — cria tenant + membership admin + pipeline padrão atomicamente
+  - `create_tenant_with_admin` — cria tenant + membership admin + pipeline padrão + canal interno atomicamente
   - `accept_invite` — aceita convite com validação de token/expiração
   - `create_invite` — cria convite com validação, geração de token e audit log
   - `log_audit_event` — registra evento de auditoria (único caminho para INSERT em audit_logs)
   - `log_activity_event` — registra evento na timeline de atividades (único caminho para INSERT em activity_timeline)
+  - `log_message_event` — registra evento de mensagem na timeline (entity=thread, action=message.sent)
 - Writes em `invites`, `audit_logs` e `activity_timeline` **não possuem** políticas de INSERT direto; toda escrita passa por RPCs
 
 ## CRM
@@ -131,13 +140,66 @@ npx drizzle-kit studio
 Ao criar um tenant via `create_tenant_with_admin`, um pipeline padrão é criado automaticamente com 5 etapas:
 Novo → Contato feito → Proposta → Negociação → Fechado
 
-### Auditoria e Timeline
+## Inbox
+
+### Arquitetura
+
+O módulo Inbox é um sistema centralizado de conversas, projetado para ser extensível a múltiplos canais (WhatsApp, Email, Instagram) sem necessidade de refatoração.
+
+### Tabelas
+
+- `channels` — Tipos de canais de comunicação (internal, whatsapp, email, instagram)
+  - Constraint `UNIQUE(tenant_id, type, name)` para evitar duplicatas
+  - Canal "Interno" criado automaticamente ao criar um tenant
+- `threads` — Conversas com status (open/closed/archived), responsável e vínculo com entidades CRM
+  - Suporte a `related_entity` (lead/deal/company) para integração CRM
+  - `last_message_at` para ordenação por última atividade
+- `thread_participants` — Participantes internos das conversas
+  - Constraint `UNIQUE(thread_id, user_id)`
+- `messages` — Mensagens com `sender_type` (user/system/external)
+  - Realtime habilitado para atualização ao vivo no ThreadDetail
+
+### RLS Inbox
+
+- **channels**: SELECT para membros; INSERT/UPDATE/DELETE apenas admin
+- **threads**: SELECT para membros; INSERT/UPDATE admin+manager+agent (agent limitado a assigned_user_id = ele ou NULL); DELETE admin+manager
+- **messages**: SELECT para membros; INSERT para membros; UPDATE/DELETE admin+manager
+- **thread_participants**: SELECT para membros; INSERT/DELETE admin+manager
+
+### RPCs
+
+- `log_message_event` — SECURITY DEFINER que registra `message.sent` na `activity_timeline` com metadata `{ message_id, sender_type }`
+
+### Eventos de Auditoria e Timeline
+
+- `thread.created` — ao criar conversa
+- `message.sent` — ao enviar mensagem (via RPC `log_message_event`)
+- `thread.assigned` — ao atribuir responsável
+- `thread.closed` — ao fechar conversa
+- `thread.reopened` — ao reabrir conversa
+
+### Extensibilidade Futura
+
+Para adicionar um novo canal (ex: WhatsApp):
+1. Criar um novo registro em `channels` com `type = 'whatsapp'`
+2. Implementar integração via Edge Function que cria mensagens com `sender_type = 'external'`
+3. O fluxo de UI já suporta filtro por canal e exibição de mensagens externas
+4. Nenhuma alteração de schema necessária
+
+### Validações Zod
+
+- `createThreadSchema`: `channel_id` (uuid obrigatório), `subject` (max 200), `related_entity` (enum lead/deal/company), `related_entity_id` (uuid)
+- `sendMessageSchema`: `content` (string, min 1, max 5000, trimmed)
+
+## Auditoria e Timeline
 
 Operações principais que geram registros:
 - `deal.created`, `deal.stage_changed`
 - `lead.created`
 - `task.created`, `task.completed`
 - `tag.created`
+- `thread.created`, `thread.assigned`, `thread.closed`, `thread.reopened`
+- `message.sent`
 
 ## Tenant Ativo
 
