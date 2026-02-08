@@ -21,6 +21,17 @@ export async function createTag(tenantId: string, name: string, color?: string |
   return data as unknown as Tag;
 }
 
+export async function updateTag(id: string, name: string, color?: string | null): Promise<Tag> {
+  const { data, error } = await supabase
+    .from('tags')
+    .update({ name, color: color ?? null } as never)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as unknown as Tag;
+}
+
 export async function deleteTag(id: string): Promise<void> {
   const { error } = await supabase.from('tags').delete().eq('id', id);
   if (error) throw error;
