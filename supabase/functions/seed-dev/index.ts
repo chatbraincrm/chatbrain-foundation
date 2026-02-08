@@ -15,10 +15,12 @@ const DEMO_NAME = "CRM Demo";
 const DEMO_TENANT_SLUG = "demo";
 const DEMO_TENANT_NAME = "Tenant Demo";
 
-// External Supabase credentials from secrets
-const EXTERNAL_URL = Deno.env.get("SUPABASE_URL")!;
-const EXTERNAL_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const EXTERNAL_ANON_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+// External Supabase credentials from custom secrets
+const EXTERNAL_URL = Deno.env.get("EXTERNAL_SUPABASE_URL")!;
+const EXTERNAL_SERVICE_KEY = Deno.env.get("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY")!;
+// Anon key is public — safe to hardcode
+const EXTERNAL_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYW56Zm54dm1ocHBicHh5aGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1MjQ5NDYsImV4cCI6MjA4NjEwMDk0Nn0.m6mFIKf86lbyuT0aVLlpQ008w5M52pMMdFImPahUE6g";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -30,7 +32,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           ok: false,
-          error: "Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY or SUPABASE_PUBLISHABLE_KEY secrets",
+          error: "Missing EXTERNAL_SUPABASE_URL or EXTERNAL_SUPABASE_SERVICE_ROLE_KEY secrets",
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
