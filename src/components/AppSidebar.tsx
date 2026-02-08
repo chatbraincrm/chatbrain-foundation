@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth-context";
 import { can, type Permission } from "@/lib/rbac";
 import {
   LayoutDashboard, Users, Mail, FileText, Settings, Building2, LogOut,
-  GitBranch, UserCircle, Briefcase, CheckSquare, Building,
+  GitBranch, UserCircle, Briefcase, CheckSquare, Building, Tag,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -33,6 +33,7 @@ const crmItems: { title: string; url: string; icon: typeof LayoutDashboard; perm
   { title: "Empresas", url: "/crm/companies", icon: Building, permission: 'crm:read' },
   { title: "Tarefas", url: "/crm/tasks", icon: CheckSquare, permission: 'crm:read' },
   { title: "Pipelines", url: "/crm/pipelines", icon: GitBranch, permission: 'crm:read' },
+  { title: "Tags", url: "/crm/tags", icon: Tag, permission: 'crm:read' },
 ];
 
 export function AppSidebar() {

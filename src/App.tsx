@@ -28,6 +28,7 @@ import CompanyDetail from "@/pages/crm/CompanyDetail";
 import DealsKanban from "@/pages/crm/DealsKanban";
 import DealDetail from "@/pages/crm/DealDetail";
 import Tasks from "@/pages/crm/Tasks";
+import Tags from "@/pages/crm/Tags";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
                     <Route path="/crm/deals" element={<DealsKanban />} />
                     <Route path="/crm/deals/:id" element={<DealDetail />} />
                     <Route path="/crm/tasks" element={<Tasks />} />
+                    <Route path="/crm/tags" element={<Tags />} />
                   </Route>
                 </Route>
               </Route>
