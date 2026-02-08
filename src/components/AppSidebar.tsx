@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth-context";
 import { can, type Permission } from "@/lib/rbac";
 import {
   LayoutDashboard, Users, Mail, FileText, Settings, Building2, LogOut,
-  GitBranch, UserCircle, Briefcase, CheckSquare, Building, Tag,
+  GitBranch, UserCircle, Briefcase, CheckSquare, Building, Tag, Inbox,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -36,6 +36,10 @@ const crmItems: { title: string; url: string; icon: typeof LayoutDashboard; perm
   { title: "Tags", url: "/crm/tags", icon: Tag, permission: 'crm:read' },
 ];
 
+const inboxItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: Permission }[] = [
+  { title: "Conversas", url: "/inbox", icon: Inbox, permission: 'crm:read' },
+];
+
 export function AppSidebar() {
   const { currentTenant, membership } = useTenant();
   const { signOut } = useAuth();
@@ -51,6 +55,10 @@ export function AppSidebar() {
   );
 
   const visibleCrm = crmItems.filter(
+    item => can(membership?.role, item.permission)
+  );
+
+  const visibleInbox = inboxItems.filter(
     item => can(membership?.role, item.permission)
   );
 
@@ -90,6 +98,32 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {visibleCrm.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {visibleInbox.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider px-3 py-2">
+              Inbox
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleInbox.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <NavLink

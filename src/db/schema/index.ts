@@ -13,3 +13,7 @@ export { tasks } from './tasks';
 export { activityTimeline } from './activity-timeline';
 export { tags } from './tags';
 export { entityTags } from './entity-tags';
+export { channels } from './channels';
+export { threads } from './threads';
+export { threadParticipants } from './thread-participants';
+export { messages } from './messages';
