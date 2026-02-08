@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import type { ActivityTimelineWithProfile } from '@/types';
 
 export async function getEntityTimeline(tenantId: string, entity: string, entityId: string): Promise<ActivityTimelineWithProfile[]> {

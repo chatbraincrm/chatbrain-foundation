@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import type { Deal, DealWithRelations } from '@/types';
 
 export async function getTenantDeals(tenantId: string, pipelineId?: string): Promise<DealWithRelations[]> {

@@ -10,7 +10,7 @@ import { markThreadRead } from '@/modules/inbox/unread-api';
 import { createAuditLog } from '@/modules/audit/api';
 import { logActivityEvent } from '@/modules/crm/timeline-api';
 import { sendMessageSchema } from '@/lib/validators';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';

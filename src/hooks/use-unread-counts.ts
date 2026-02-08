@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTenant } from '@/lib/tenant-context';
 import { getUnreadCounts, type UnreadCount } from '@/modules/inbox/unread-api';
 import { useMemo, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 
 export function useUnreadCounts() {
   const { currentTenant } = useTenant();

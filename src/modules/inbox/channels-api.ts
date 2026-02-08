@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import type { Channel } from '@/types';
 
 export async function getTenantChannels(tenantId: string): Promise<Channel[]> {

@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import type { ThreadParticipant, ThreadParticipantWithProfile } from '@/types';
 
 export async function getThreadParticipants(
