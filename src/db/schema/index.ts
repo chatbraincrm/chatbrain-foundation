@@ -17,3 +17,4 @@ export { channels } from './channels';
 export { threads } from './threads';
 export { threadParticipants } from './thread-participants';
 export { messages } from './messages';
+export { threadReads } from './thread-reads';

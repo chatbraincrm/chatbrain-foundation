@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { can } from '@/lib/rbac';
 import { getTenantThreads, type ThreadFilters } from '@/modules/inbox/threads-api';
 import { getTenantChannels } from '@/modules/inbox/channels-api';
+import { useUnreadCounts } from '@/hooks/use-unread-counts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +48,7 @@ export default function InboxList() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const canWrite = can(membership?.role, 'crm:write');
+  const { unreadMap } = useUnreadCounts();
 
   const [statusFilter, setStatusFilter] = useState<string>('open');
   const [channelFilter, setChannelFilter] = useState<string>('all');
@@ -146,6 +148,7 @@ export default function InboxList() {
             <ThreadRow
               key={thread.id}
               thread={thread}
+              unreadCount={unreadMap.get(thread.id) || 0}
               onClick={() => navigate(`/inbox/${thread.id}`)}
             />
           ))}
@@ -163,9 +166,11 @@ export default function InboxList() {
 
 function ThreadRow({
   thread,
+  unreadCount,
   onClick,
 }: {
   thread: ThreadWithRelations;
+  unreadCount: number;
   onClick: () => void;
 }) {
   const channelIcon = CHANNEL_ICONS[thread.channels?.type || 'internal'] || '📨';
@@ -173,12 +178,14 @@ function ThreadRow({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-start gap-4 p-4 text-left hover:bg-muted/50 transition-colors"
+      className={`w-full flex items-start gap-4 p-4 text-left hover:bg-muted/50 transition-colors ${
+        unreadCount > 0 ? 'bg-primary/5' : ''
+      }`}
     >
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2">
           <span className="text-sm">{channelIcon}</span>
-          <span className="font-medium text-sm truncate">
+          <span className={`text-sm truncate ${unreadCount > 0 ? 'font-bold' : 'font-medium'}`}>
             {thread.subject || 'Sem assunto'}
           </span>
           {thread.related_entity && (
@@ -221,6 +228,11 @@ function ThreadRow({
           )}
         </div>
       </div>
+      {unreadCount > 0 && (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground shrink-0 mt-1">
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </span>
+      )}
     </button>
   );
 }
