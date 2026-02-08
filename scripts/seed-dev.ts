@@ -311,6 +311,154 @@ async function ensureMessage(tenantId: string, threadId: string): Promise<void> 
   console.log(`✅  Mensagem demo criada`);
 }
 
+async function ensureWhatsAppConnection(tenantId: string): Promise<void> {
+  const { data: existing } = await adminClient
+    .from('whatsapp_connections')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (existing) {
+    console.log(`✅  Conexão WhatsApp (Evolution) demo já existe`);
+    return;
+  }
+
+  const { error } = await adminClient.from('whatsapp_connections').insert({
+    tenant_id: tenantId,
+    provider: 'evolution',
+    name: 'WhatsApp Principal',
+    is_active: false,
+    base_url: 'https://evolution.example.com',
+    api_key: '',
+    instance_name: 'demo',
+    webhook_secret: null,
+  });
+
+  if (error) throw new Error(`Falha ao criar conexão WhatsApp demo: ${error.message}`);
+  console.log(`✅  Conexão WhatsApp (Evolution) demo criada (inativa, sem API key)`);
+}
+
+/** Cria agente de atendimento demo (ativo, canal Interno habilitado) para o tenant. */
+async function ensureAgentDemo(tenantId: string): Promise<string> {
+  let agentId: string;
+  const { data: existing } = await adminClient
+    .from('ai_agents')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    agentId = existing.id;
+    console.log(`✅  Agente demo já existe (${agentId})`);
+  } else {
+    const { data: agent, error: agentErr } = await adminClient
+      .from('ai_agents')
+      .insert({
+        tenant_id: tenantId,
+        name: 'Agente de Atendimento',
+        is_active: true,
+        system_prompt: 'Você é um assistente de atendimento. Seja cordial e objetivo. Se não souber algo, diga que um atendente pode ajudar.',
+        user_prompt: null,
+      })
+      .select('id')
+      .single();
+    if (agentErr) throw new Error(`Falha ao criar agente demo: ${agentErr.message}`);
+    agentId = agent.id;
+    console.log(`✅  Agente de Atendimento demo criado`);
+  }
+
+  await adminClient.from('ai_agent_channels').upsert(
+    {
+      tenant_id: tenantId,
+      agent_id: agentId,
+      channel_type: 'internal',
+      is_enabled: true,
+    },
+    { onConflict: 'agent_id,channel_type' }
+  );
+  return agentId;
+}
+
+/** Thread demo do Agente de Atendimento: cliente pergunta preço, agente responde, humano assume. */
+async function ensureAgentDemoThread(
+  tenantId: string,
+  channelId: string,
+  userId: string
+): Promise<void> {
+  const subject = 'Conversa Demo (Agente)';
+  const { data: existing } = await adminClient
+    .from('threads')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('subject', subject)
+    .maybeSingle();
+
+  let threadId: string;
+  if (existing) {
+    console.log(`✅  Thread demo do agente já existe (${existing.id})`);
+    threadId = existing.id;
+  } else {
+    const { data: thread, error: threadErr } = await adminClient
+      .from('threads')
+      .insert({
+        tenant_id: tenantId,
+        channel_id: channelId,
+        subject,
+        status: 'open',
+        related_entity: null,
+        related_entity_id: null,
+        last_message_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (threadErr) throw new Error(`Falha ao criar thread demo agente: ${threadErr.message}`);
+    threadId = thread.id;
+    console.log(`✅  Thread demo do agente criada: ${threadId}`);
+
+    const baseTime = new Date(Date.now() - 3600000).toISOString();
+    await adminClient.from('messages').insert([
+      {
+        tenant_id: tenantId,
+        thread_id: threadId,
+        sender_type: 'external',
+        sender_subtype: null,
+        content: 'Qual o preço do plano básico?',
+        created_at: baseTime,
+      },
+      {
+        tenant_id: tenantId,
+        thread_id: threadId,
+        sender_type: 'system',
+        sender_subtype: 'ai',
+        content: 'O plano básico custa R$ 99/mês. Posso te ajudar com mais alguma coisa?',
+        created_at: new Date(Date.now() - 3500000).toISOString(),
+      },
+      {
+        tenant_id: tenantId,
+        thread_id: threadId,
+        sender_type: 'user',
+        sender_user_id: userId,
+        content: 'Quero falar com um humano',
+        created_at: new Date(Date.now() - 3400000).toISOString(),
+      },
+    ]);
+    await adminClient
+      .from('thread_handoffs')
+      .upsert(
+        {
+          tenant_id: tenantId,
+          thread_id: threadId,
+          is_handed_off: true,
+          handed_off_at: new Date().toISOString(),
+          handed_off_by: userId,
+        },
+        { onConflict: 'thread_id' }
+      );
+    console.log(`✅  Mensagens e handoff demo do agente criados`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -335,7 +483,14 @@ async function main() {
   const threadId = await ensureThread(tenantId, channelId, leadId);
   await ensureMessage(tenantId, threadId);
 
-  // 6. Set active tenant for the demo user
+  // 6. Agente de Atendimento demo + thread (cliente → agente → humano)
+  await ensureAgentDemo(tenantId);
+  await ensureAgentDemoThread(tenantId, channelId, userId);
+
+  // 7. WhatsApp Evolution (conexão fake desativada para demo)
+  await ensureWhatsAppConnection(tenantId);
+
+  // 8. Set active tenant for the demo user
   await adminClient
     .from('profiles')
     .update({ active_tenant_id: tenantId })

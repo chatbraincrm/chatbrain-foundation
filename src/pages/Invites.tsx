@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenant } from '@/lib/tenant-context';
 import { can } from '@/lib/rbac';
-import { getTenantInvites, createInvite, deleteInvite } from '@/modules/invites/api';
+import { getTenantInvites, createInvite, deleteInvite, sendInviteEmail } from '@/modules/invites/api';
 import { createInviteSchema } from '@/lib/validators';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Copy, Plus } from 'lucide-react';
+import { Trash2, Copy, Plus, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Invites() {
@@ -32,12 +32,23 @@ export default function Invites() {
 
   const createMutation = useMutation({
     mutationFn: () => createInvite(currentTenant!.id, email, role),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['invites'] });
       setEmail('');
       setRole('agent');
       setShowForm(false);
       toast({ title: 'Convite criado com sucesso' });
+      const sendResult = await sendInviteEmail(data.id);
+      if (sendResult.sent) {
+        toast({ title: 'Email enviado' });
+        queryClient.invalidateQueries({ queryKey: ['invites'] });
+      } else {
+        toast({
+          title: 'Falha ao enviar email',
+          description: 'Você pode copiar o link manualmente e enviar ao convidado.',
+          variant: 'destructive',
+        });
+      }
     },
     onError: (error: Error) => {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
@@ -49,6 +60,18 @@ export default function Invites() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invites'] });
       toast({ title: 'Convite removido' });
+    },
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: sendInviteEmail,
+    onSuccess: (result, inviteId) => {
+      if (result.sent) {
+        toast({ title: 'Email reenviado' });
+        queryClient.invalidateQueries({ queryKey: ['invites'] });
+      } else {
+        toast({ title: 'Falha ao reenviar', description: result.error, variant: 'destructive' });
+      }
     },
   });
 
@@ -122,24 +145,25 @@ export default function Invites() {
 
       <div className="rounded-lg border border-border">
         <Table>
-          <TableHeader>
+            <TableHeader>
             <TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Papel</TableHead>
               <TableHead>Expira em</TableHead>
               <TableHead>Status</TableHead>
-              {canManage && <TableHead className="w-[100px]">Ações</TableHead>}
+              <TableHead>Email enviado</TableHead>
+              {canManage && <TableHead className="w-[120px]">Ações</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {(!invites || invites.length === 0) ? (
               <TableRow>
-                <TableCell colSpan={canManage ? 5 : 4} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={canManage ? 7 : 6} className="text-center text-muted-foreground py-8">
                   Nenhum convite encontrado
                 </TableCell>
               </TableRow>
             ) : (
-              invites.map((invite: any) => (
+              invites.map((invite: { id: string; email: string; role: string; expires_at: string; accepted_at: string | null; token: string; email_sent_at?: string | null }) => (
                 <TableRow key={invite.id}>
                   <TableCell>{invite.email}</TableCell>
                   <TableCell><Badge variant="secondary" className="capitalize">{invite.role}</Badge></TableCell>
@@ -155,13 +179,31 @@ export default function Invites() {
                       <Badge variant="outline">Pendente</Badge>
                     )}
                   </TableCell>
+                  <TableCell>
+                    {invite.email_sent_at ? (
+                      <span className="text-muted-foreground text-sm">{format(new Date(invite.email_sent_at), 'dd/MM HH:mm')}</span>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
+                  </TableCell>
                   {canManage && (
                     <TableCell>
                       <div className="flex gap-1">
                         {!invite.accepted_at && (
-                          <Button variant="ghost" size="icon" onClick={() => copyLink(invite.token)} title="Copiar link">
-                            <Copy className="h-4 w-4" />
-                          </Button>
+                          <>
+                            <Button variant="ghost" size="icon" onClick={() => copyLink(invite.token)} title="Copiar link">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => resendMutation.mutate(invite.id)}
+                              disabled={resendMutation.isPending}
+                              title="Reenviar email"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                          </>
                         )}
                         <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(invite.id)} className="text-destructive hover:text-destructive">
                           <Trash2 className="h-4 w-4" />

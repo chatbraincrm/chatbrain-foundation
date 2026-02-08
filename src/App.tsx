@@ -32,6 +32,9 @@ import Tasks from "@/pages/crm/Tasks";
 import Tags from "@/pages/crm/Tags";
 import InboxList from "@/pages/inbox/InboxList";
 import ThreadDetail from "@/pages/inbox/ThreadDetail";
+import AiAgentPage from "@/modules/ai-agent/components/AiAgentPage";
+import WhatsAppSettings from "@/pages/WhatsAppSettings";
+import Billing from "@/pages/Billing";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +65,9 @@ const App = () => (
                     <Route path="/members" element={<Members />} />
                     <Route path="/invites" element={<Invites />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/settings/ai-agent" element={<AiAgentPage />} />
+                    <Route path="/settings/whatsapp" element={<WhatsAppSettings />} />
+                    <Route path="/settings/billing" element={<Billing />} />
                     <Route path="/audit" element={<AuditLog />} />
                     {/* CRM Routes */}
                     <Route path="/crm/pipelines" element={<Pipelines />} />

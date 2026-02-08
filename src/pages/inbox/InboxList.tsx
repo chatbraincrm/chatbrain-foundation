@@ -6,7 +6,16 @@ import { useAuth } from '@/lib/auth-context';
 import { can } from '@/lib/rbac';
 import { getTenantThreads, type ThreadFilters } from '@/modules/inbox/threads-api';
 import { getTenantChannels } from '@/modules/inbox/channels-api';
+import { getHandoffsForThreads } from '@/modules/inbox/handoffs-api';
+import { getAgent, getAgentChannels } from '@/modules/ai-agent/ai-agent-api';
 import { useUnreadCounts } from '@/hooks/use-unread-counts';
+import { useUsage } from '@/hooks/use-usage';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,6 +58,7 @@ export default function InboxList() {
   const navigate = useNavigate();
   const canWrite = can(membership?.role, 'crm:write');
   const { unreadMap } = useUnreadCounts();
+  const { canCreateThread, threadsLimitReached } = useUsage();
 
   const [statusFilter, setStatusFilter] = useState<string>('open');
   const [channelFilter, setChannelFilter] = useState<string>('all');
@@ -73,7 +83,29 @@ export default function InboxList() {
     enabled: !!currentTenant,
   });
 
+  const { data: agent } = useQuery({
+    queryKey: ['ai-agent', currentTenant?.id],
+    queryFn: () => getAgent(currentTenant!.id),
+    enabled: !!currentTenant && threads.length > 0,
+  });
+
+  const { data: agentChannels = [] } = useQuery({
+    queryKey: ['ai-agent-channels', currentTenant?.id, agent?.id],
+    queryFn: () => getAgentChannels(currentTenant!.id, agent!.id),
+    enabled: !!currentTenant && !!agent?.id,
+  });
+
+  const { data: handoffsMap = {} } = useQuery({
+    queryKey: ['thread-handoffs-batch', currentTenant?.id, threads.map((t) => t.id).join(',')],
+    queryFn: () => getHandoffsForThreads(currentTenant!.id, threads.map((t) => t.id)),
+    enabled: !!currentTenant && threads.length > 0,
+  });
+
+  const internalEnabled = agentChannels.some((c) => c.channel_type === 'internal' && c.is_enabled);
+  const whatsappEnabled = agentChannels.some((c) => c.channel_type === 'whatsapp' && c.is_enabled);
+
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -83,10 +115,26 @@ export default function InboxList() {
           </p>
         </div>
         {canWrite && (
-          <Button onClick={() => setCreateOpen(true)} size="sm">
-            <Plus className="h-4 w-4 mr-1.5" />
-            Nova Conversa
-          </Button>
+          threadsLimitReached ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block">
+                  <Button disabled size="sm">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Nova Conversa
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                Você atingiu o limite de conversas do seu plano. Entre em contato com o suporte para continuar.
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button onClick={() => setCreateOpen(true)} size="sm">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nova Conversa
+            </Button>
+          )
         )}
       </div>
 
@@ -136,23 +184,50 @@ export default function InboxList() {
               : 'Nenhuma conversa com os filtros selecionados.'}
           </p>
           {canWrite && statusFilter === 'open' && (
-            <Button onClick={() => setCreateOpen(true)} size="sm" className="mt-4">
-              <Plus className="h-4 w-4 mr-1.5" />
-              Nova Conversa
-            </Button>
+            threadsLimitReached ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-block mt-4">
+                    <Button disabled size="sm">
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Nova Conversa
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Você atingiu o limite de conversas do seu plano. Entre em contato com o suporte para continuar.
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Button onClick={() => setCreateOpen(true)} size="sm" className="mt-4">
+                <Plus className="h-4 w-4 mr-1.5" />
+                Nova Conversa
+              </Button>
+            )
           )}
         </div>
       ) : (
-        <div className="border rounded-lg divide-y divide-border">
-          {threads.map(thread => (
-            <ThreadRow
-              key={thread.id}
-              thread={thread}
-              unreadCount={unreadMap.get(thread.id) || 0}
-              onClick={() => navigate(`/inbox/${thread.id}`)}
-            />
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="border rounded-lg divide-y divide-border">
+            {threads.map(thread => {
+              const channelType = thread.channels?.type;
+              const agentActiveHere =
+                !!agent?.is_active &&
+                ((channelType === 'internal' && internalEnabled) ||
+                  (channelType === 'whatsapp' && whatsappEnabled));
+              const isHandedOff = agentActiveHere && (handoffsMap[thread.id]?.is_handed_off ?? false);
+              return (
+                <ThreadRow
+                  key={thread.id}
+                  thread={thread}
+                  unreadCount={unreadMap.get(thread.id) || 0}
+                  onClick={() => navigate(`/inbox/${thread.id}`)}
+                  agentBadge={agentActiveHere ? (isHandedOff ? 'human' : 'agent') : null}
+                />
+              );
+            })}
+          </div>
+        </TooltipProvider>
       )}
 
       <CreateThreadDialog
@@ -161,6 +236,7 @@ export default function InboxList() {
         channels={channels}
       />
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -168,10 +244,12 @@ function ThreadRow({
   thread,
   unreadCount,
   onClick,
+  agentBadge,
 }: {
   thread: ThreadWithRelations;
   unreadCount: number;
   onClick: () => void;
+  agentBadge: 'agent' | 'human' | null;
 }) {
   const channelIcon = CHANNEL_ICONS[thread.channels?.type || 'internal'] || '📨';
 
@@ -183,7 +261,7 @@ function ThreadRow({
       }`}
     >
       <div className="flex-1 min-w-0 space-y-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm">{channelIcon}</span>
           <span className={`text-sm truncate ${unreadCount > 0 ? 'font-bold' : 'font-medium'}`}>
             {thread.subject || 'Sem assunto'}
@@ -199,6 +277,26 @@ function ThreadRow({
           >
             {STATUS_LABELS[thread.status] || thread.status}
           </Badge>
+          {agentBadge === 'agent' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="text-xs shrink-0 bg-blue-500/15 text-blue-600 border-blue-500/30">
+                  Agente ativo
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>O agente de atendimento está respondendo automaticamente nesta conversa.</TooltipContent>
+            </Tooltip>
+          )}
+          {agentBadge === 'human' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="text-xs shrink-0 bg-amber-500/15 text-amber-600 border-amber-500/30">
+                  Em atendimento humano
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>Um atendente assumiu esta conversa.</TooltipContent>
+            </Tooltip>
+          )}
         </div>
         <ThreadLastMessage threadId={thread.id} />
         <div className="flex items-center gap-3 text-xs text-muted-foreground">

@@ -242,6 +242,140 @@ Para adicionar um novo canal (ex: WhatsApp):
 
 ---
 
+## WhatsApp V1 (Evolution API)
+
+Integração opcional com **Evolution API** para WhatsApp real: um tenant pode ter uma conexão ativa; inbound cria/reaproveita threads no Inbox e outbound envia mensagens quando a thread for WhatsApp e houver conexão ativa.
+
+### Arquitetura
+
+- **Persistência**: `whatsapp_connections` (uma por tenant; `base_url`, `api_key`, `instance_name`, `webhook_secret`, `is_active`) e `whatsapp_thread_links` (vínculo thread ↔ `wa_chat_id`).
+- **Webhook**: POST `/api/webhooks/evolution` — validar header `x-webhook-secret`; parse do payload Evolution; criar/achar thread; inserir mensagem; rodar agente em background; responder 200 rápido.
+- **Outbound**: cliente Evolution (`sendTextMessage` / `sendMediaMessage`); usado ao enviar mensagem pelo Inbox em thread WhatsApp e, se `ENABLE_WHATSAPP_OUTBOUND=true`, quando o agente insere mensagem em thread WhatsApp.
+
+### Servidor de webhook
+
+O webhook da Evolution precisa ser servido por um servidor Node (o front Vite não expõe essa rota em produção).
+
+```bash
+# Desenvolvimento (na raiz do projeto)
+npm run server
+```
+
+O servidor sobe por padrão em `http://localhost:3001` e expõe `POST /api/webhooks/evolution`.
+
+**Variáveis de ambiente (servidor)**:
+
+| Variável | Obrigatória | Descrição |
+|----------|-------------|-----------|
+| `SUPABASE_URL` | ✅ | URL do projeto Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role (bypass RLS no webhook) |
+| `OPENAI_API_KEY` | Para agente | Chave OpenAI para respostas do agente |
+| `ENABLE_WHATSAPP_OUTBOUND` | Não | `true` para o agente enviar no WhatsApp (default: `false`) |
+| `EVOLUTION_DEFAULT_BASE_URL` | Não | URL padrão da Evolution (ex.: `https://evolution.example.com`) |
+
+**Configuração no painel Evolution**:
+
+1. URL do webhook: `https://seu-dominio.com/api/webhooks/evolution` (em dev use um tunnel, ex. ngrok).
+2. Header: `x-webhook-secret` = valor do campo "Webhook secret" em Configurações → WhatsApp no CHATBRAIN (gerar e salvar na tela).
+3. Eventos: habilitar pelo menos **MESSAGES_UPSERT** para receber mensagens.
+
+### Regras
+
+- Sem credenciais/configuração o app continua igual; nada do Inbox interno quebra.
+- Handoff humano interrompe respostas do agente e impede outbound do agente.
+- Agente responde no WhatsApp apenas se o canal WhatsApp estiver habilitado no agente e houver `OPENAI_API_KEY`.
+- `api_key` fica apenas no banco (não em variáveis VITE); na UI só admin/manager veem e só para preencher; ao salvar, campo vazio mantém a chave existente.
+
+---
+
+## Convites por email (Resend)
+
+Convites criados no app podem ter o link enviado por email automaticamente.
+
+- **Provider**: Resend (produção) ou Mock (dev/testes). Definido por `EMAIL_PROVIDER=resend` ou `mock`.
+- **Variáveis**: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `APP_BASE_URL`. Sem config, a criação do convite não quebra; o link pode ser copiado manualmente.
+- **Fluxo**: Ao criar convite (RPC), o front chama `POST /api/invites/send-email` no servidor com o `invite_id`; o servidor valida JWT, envia o email via Resend e atualiza `invites.email_sent_at`.
+- **Reenviar**: Na tela de convites, botão para reenviar o email usando o mesmo token.
+
+---
+
+## Deploy em produção
+
+O app precisa de **dois componentes**: front estático (build Vite) e **servidor Node** (webhook WhatsApp + API de convites). A solução recomendada é um **container Docker** com Nginx + Node.
+
+### Rodar local com Docker Compose
+
+1. **Copie o exemplo de env** (frontend + servidor):
+   ```bash
+   cp .env.local.example .env
+   ```
+2. **Edite `.env`** e preencha pelo menos:
+   - **Frontend**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (Supabase do seu projeto).
+   - **Servidor**: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `APP_BASE_URL=http://localhost:8080`.
+   - **Email**: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` para envio real de convites.
+3. **Suba os serviços**:
+   ```bash
+   docker compose up --build
+   ```
+4. Acesse **http://localhost:8080**. O Nginx faz proxy de `/api/*` para o Node.
+5. **Health**: `curl http://localhost:8080/api/health` deve retornar `{"status":"ok",...}`.
+
+### Variáveis de ambiente no deploy
+
+| Variável | Obrigatória | Uso |
+|----------|-------------|-----|
+| `SUPABASE_URL` | ✅ | Servidor (webhook + invite email) |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Servidor |
+| `SUPABASE_ANON_KEY` | ✅ | Servidor (validação JWT para /api/invites/send-email) |
+| `PORT` | Não | Porta do Node (default 3001) |
+| `APP_BASE_URL` | Para email | URL pública do app (ex.: https://app.seudominio.com) |
+| `OPENAI_API_KEY` | Para agente | Respostas do agente no webhook |
+| `EMAIL_PROVIDER` | Não | `resend` ou `mock` |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Se resend | Envio de convites |
+| `SENTRY_DSN` | Não | Se definida, instale `@sentry/node` para erros |
+
+No **frontend** (build Vite), use as mesmas variáveis `VITE_*`; em produção atrás do mesmo host, `VITE_API_URL` pode ficar vazio (same origin).
+
+### Deploy em Render / Fly.io / Railway
+
+1. **Build**: Use o `Dockerfile` com target `web` para o serviço de front (Nginx) e target `api` para o serviço Node.
+2. **Render**: Crie dois Web Services — um com Dockerfile target `web` (porta 80), outro target `api` (porta 3001). Ou um único serviço que rode ambos (script custom).
+3. **Fly.io**: Dois apps ou um Dockerfile multi-service; configure `fly.toml` com portas e envs.
+4. **Railway**: Dois serviços a partir do mesmo repo: um Dockerfile target `web`, outro target `api`; defina envs em cada um.
+
+Em todos os casos, configure a **URL pública** do front (ex.: https://seu-app.onrender.com) em `APP_BASE_URL` e, no painel Evolution, use essa mesma base para o webhook: `https://seu-app.onrender.com/api/webhooks/evolution`.
+
+### Servidor (Node)
+
+- **Porta**: `PORT` (default 3001).
+- **Rotas**: `GET /api/health` (health check), `POST /api/invites/send-email` (auth JWT), `POST /api/webhooks/evolution` (header `x-webhook-secret`).
+- **CORS**: Em dev aceita qualquer origin; em produção aceita apenas `APP_BASE_URL` quando definido.
+- **Rate limit**: 120 req/min por IP no webhook. **Logs**: JSON estruturado, sem segredos.
+
+### Teste manual local (Docker) — checklist
+
+Use este passo a passo para validar o fluxo de convites e a app atrás do Nginx.
+
+| Item | Como validar |
+|------|----------------|
+| **A** | `docker compose up --build` sobe web e api; app abre em http://localhost:8080 |
+| **B** | `curl http://localhost:8080/api/health` responde `{"status":"ok",...}` |
+| **C** | Criar convite envia email via Resend (verifique caixa de entrada e `EMAIL_PROVIDER=resend` + Resend configurado) |
+| **D** | Reenviar convite (botão na linha do convite) funciona e atualiza "Email enviado" (e `email_sent_at` no banco) |
+| **E** | Página `/invite/:token` funciona: abrir link do email → login/signup se necessário (redirect preservado) → aceitar convite → membership criada e redirecionamento para /select-tenant |
+
+**Passo a passo resumido**
+
+1. Subir stack: `cp .env.local.example .env`, preencher `.env`, `docker compose up --build`.
+2. Criar conta: acesse http://localhost:8080 → Signup → confirmar email (Supabase Auth).
+3. Criar workspace: após login, criar primeiro tenant (Onboarding ou Select Tenant).
+4. Criar convite: Configurações / Convites → Novo Convite (email do convidado + papel) → Criar. Verificar "Email enviado" ou falha (e link para copiar).
+5. Receber email: conferir caixa de entrada (ou mock se `EMAIL_PROVIDER=mock`); copiar link se não tiver Resend.
+6. Aceitar em janela anônima: abrir o link (ex.: http://localhost:8080/invite/TOKEN) em aba anônima → fazer login ou criar conta (redirect volta para `/invite/TOKEN`) → clicar "Aceitar Convite".
+7. Confirmar: redirecionamento para /select-tenant; escolher o workspace; verificar que o usuário tem o papel correto (Members).
+
+---
+
 ## Auditoria
 
 Operações que geram registros:

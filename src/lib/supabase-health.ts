@@ -13,7 +13,7 @@ export async function checkSupabaseConnection(): Promise<void> {
       console.error(
         '❌ [Supabase] Falha na conexão com o banco:',
         error.message,
-        '\n   Verifique se VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY estão corretos.'
+        '\n   Verifique se VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY estão corretos.'
       );
       return;
     }

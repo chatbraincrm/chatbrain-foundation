@@ -91,4 +91,28 @@ describe('can', () => {
     expect(can('agent', 'crm:write')).toBe(true);
     expect(can('agent', 'crm:delete')).toBe(false);
   });
+
+  it('admin and manager have view and manage AI agent', () => {
+    expect(can('admin', 'view_ai_agent')).toBe(true);
+    expect(can('admin', 'manage_ai_agent')).toBe(true);
+    expect(can('manager', 'view_ai_agent')).toBe(true);
+    expect(can('manager', 'manage_ai_agent')).toBe(true);
+  });
+
+  it('agent has only view AI agent', () => {
+    expect(can('agent', 'view_ai_agent')).toBe(true);
+    expect(can('agent', 'manage_ai_agent')).toBe(false);
+  });
+
+  it('admin and manager have view and manage WhatsApp settings', () => {
+    expect(can('admin', 'view_whatsapp_settings')).toBe(true);
+    expect(can('admin', 'manage_whatsapp_settings')).toBe(true);
+    expect(can('manager', 'view_whatsapp_settings')).toBe(true);
+    expect(can('manager', 'manage_whatsapp_settings')).toBe(true);
+  });
+
+  it('agent has only view WhatsApp settings', () => {
+    expect(can('agent', 'view_whatsapp_settings')).toBe(true);
+    expect(can('agent', 'manage_whatsapp_settings')).toBe(false);
+  });
 });

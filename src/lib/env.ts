@@ -1,14 +1,30 @@
 /**
- * Centralized environment configuration.
- * Points to the EXTERNAL Supabase project (xqanzfnxvmhppbpxyhka).
- *
- * These are publishable (anon) credentials — safe to include in client code.
+ * Configuração de ambiente (frontend).
+ * Usa apenas variáveis VITE_* — segredos nunca aqui.
+ * Roda 100% com .env / .env.local (não depende de Lovable Cloud).
  */
 
-export const supabaseUrl = 'https://xqanzfnxvmhppbpxyhka.supabase.co';
+function getEnv(key: string): string {
+  if (typeof import.meta === 'undefined' || !import.meta.env) return '';
+  const v = (import.meta.env as Record<string, unknown>)[key];
+  return typeof v === 'string' ? v.trim() : '';
+}
 
-export const supabaseAnonKey =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYW56Zm54dm1ocHBicHh5aGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1MjQ5NDYsImV4cCI6MjA4NjEwMDk0Nn0.m6mFIKf86lbyuT0aVLlpQ008w5M52pMMdFImPahUE6g';
+export const supabaseUrl = getEnv('VITE_SUPABASE_URL') || '';
+export const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || '';
 
-/** Project ref extracted from the URL hostname */
-export const supabaseProjectRef = 'xqanzfnxvmhppbpxyhka';
+/** Project ref extraído do hostname da URL (ex.: xxx.supabase.co → xxx) */
+export const supabaseProjectRef = supabaseUrl
+  ? (() => {
+      try {
+        const h = new URL(supabaseUrl).hostname;
+        return h.replace(/\.supabase\.co$/, '') || h;
+      } catch {
+        return '';
+      }
+    })()
+  : '';
+
+/** Optional: OpenAI API key for AI agent. If missing, agent won't reply. */
+export const openAiApiKey =
+  getEnv('VITE_OPENAI_API_KEY') || null;

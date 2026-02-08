@@ -5,7 +5,9 @@ export type Permission =
   | 'invites:read' | 'invites:write' | 'invites:delete'
   | 'audit:read'
   | 'tenant:read' | 'tenant:write'
-  | 'crm:read' | 'crm:write' | 'crm:delete';
+  | 'crm:read' | 'crm:write' | 'crm:delete'
+  | 'view_ai_agent' | 'manage_ai_agent'
+  | 'view_whatsapp_settings' | 'manage_whatsapp_settings';
 
 const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   admin: [
@@ -14,6 +16,8 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'audit:read',
     'tenant:read', 'tenant:write',
     'crm:read', 'crm:write', 'crm:delete',
+    'view_ai_agent', 'manage_ai_agent',
+    'view_whatsapp_settings', 'manage_whatsapp_settings',
   ],
   manager: [
     'members:read',
@@ -21,11 +25,15 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'audit:read',
     'tenant:read',
     'crm:read', 'crm:write', 'crm:delete',
+    'view_ai_agent', 'manage_ai_agent',
+    'view_whatsapp_settings', 'manage_whatsapp_settings',
   ],
   agent: [
     'members:read',
     'tenant:read',
     'crm:read', 'crm:write',
+    'view_ai_agent',
+    'view_whatsapp_settings',
   ],
 };
 

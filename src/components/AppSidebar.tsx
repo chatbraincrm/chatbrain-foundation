@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth-context";
 import { can, type Permission } from "@/lib/rbac";
 import {
   LayoutDashboard, Users, Mail, FileText, Settings, Building2, LogOut,
-  GitBranch, UserCircle, Briefcase, CheckSquare, Building, Tag, Inbox,
+  GitBranch, UserCircle, Briefcase, CheckSquare, Building, Tag, Inbox, Bot, MessageCircle, CreditCard,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUnreadCounts } from "@/hooks/use-unread-counts";
@@ -26,6 +26,9 @@ const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; per
   { title: "Convites", url: "/invites", icon: Mail, permission: 'invites:read' },
   { title: "Auditoria", url: "/audit", icon: FileText, permission: 'audit:read' },
   { title: "Configurações", url: "/settings", icon: Settings, permission: 'tenant:read' },
+  { title: "Agente de Atendimento", url: "/settings/ai-agent", icon: Bot, permission: 'view_ai_agent' },
+  { title: "WhatsApp", url: "/settings/whatsapp", icon: MessageCircle, permission: 'view_whatsapp_settings' },
+  { title: "Plano e Uso", url: "/settings/billing", icon: CreditCard, permission: 'tenant:read' },
 ];
 
 const crmItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: Permission }[] = [

@@ -8,6 +8,7 @@ export const messages = pgTable('messages', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
   threadId: uuid('thread_id').notNull().references(() => threads.id, { onDelete: 'cascade' }),
   senderType: text('sender_type').notNull(),
+  senderSubtype: text('sender_subtype'),
   senderUserId: uuid('sender_user_id').references(() => profiles.id),
   content: text('content').notNull(),
   metadata: jsonb('metadata'),
@@ -16,4 +17,9 @@ export const messages = pgTable('messages', {
   tenantIdx: index('idx_messages_tenant_id').on(table.tenantId),
   threadIdx: index('idx_messages_thread_id').on(table.threadId),
   createdAtIdx: index('idx_messages_created_at').on(table.createdAt),
+  tenantThreadCreatedIdx: index('idx_messages_tenant_thread_created').on(
+    table.tenantId,
+    table.threadId,
+    table.createdAt
+  ),
 }));

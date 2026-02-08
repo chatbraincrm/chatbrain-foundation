@@ -228,6 +228,7 @@ export interface Message {
   tenant_id: string;
   thread_id: string;
   sender_type: SenderType;
+  sender_subtype?: string | null;
   sender_user_id: string | null;
   content: string;
   metadata: Record<string, unknown> | null;

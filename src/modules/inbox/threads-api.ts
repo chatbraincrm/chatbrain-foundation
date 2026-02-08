@@ -1,4 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { incrementThreadUsage, canCreateThread } from '@/modules/billing/usage-api';
 import type { Thread, ThreadWithRelations } from '@/types';
 
 export interface ThreadFilters {
@@ -32,8 +34,12 @@ export async function getTenantThreads(
   return (data || []) as unknown as ThreadWithRelations[];
 }
 
-export async function getThread(threadId: string): Promise<ThreadWithRelations | null> {
-  const { data, error } = await supabase
+export async function getThread(
+  threadId: string,
+  client?: SupabaseClient
+): Promise<ThreadWithRelations | null> {
+  const db = client ?? supabase;
+  const { data, error } = await db
     .from('threads')
     .select('*, channels(id, type, name), profiles(id, email, name)')
     .eq('id', threadId)
@@ -51,6 +57,10 @@ export async function createThread(
     related_entity_id?: string | null;
   }
 ): Promise<Thread> {
+  const allowed = await canCreateThread(tenantId);
+  if (!allowed) {
+    throw new Error('Você atingiu o limite de conversas do seu plano. Entre em contato com o suporte para continuar.');
+  }
   const { data, error } = await supabase
     .from('threads')
     .insert({
@@ -64,7 +74,13 @@ export async function createThread(
     .select()
     .single();
   if (error) throw error;
-  return data as unknown as Thread;
+  const thread = data as unknown as Thread;
+  try {
+    await incrementThreadUsage(tenantId);
+  } catch (usageErr) {
+    console.warn('[threads-api] incrementThreadUsage failed, skipping:', usageErr);
+  }
+  return thread;
 }
 
 export async function assignThread(

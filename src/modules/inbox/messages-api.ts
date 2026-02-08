@@ -1,10 +1,15 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { trySendWhatsAppOutbound } from '@/modules/whatsapp/whatsapp-api';
+import { incrementMessageUsage, canSendMessage } from '@/modules/billing/usage-api';
 import type { Message, MessageWithProfile } from '@/types';
 
 export async function getThreadMessages(
-  threadId: string
+  threadId: string,
+  client?: SupabaseClient
 ): Promise<MessageWithProfile[]> {
-  const { data, error } = await supabase
+  const db = client ?? supabase;
+  const { data, error } = await db
     .from('messages')
     .select('*, profiles(id, email, name)')
     .eq('thread_id', threadId)
@@ -19,6 +24,12 @@ export async function sendMessage(
   content: string,
   senderUserId: string
 ): Promise<Message> {
+  const allowed = await canSendMessage(tenantId);
+  if (!allowed) {
+    throw new Error('Você atingiu o limite do seu plano ChatBrain Pro. Entre em contato com o suporte para continuar atendendo.');
+  }
+  await trySendWhatsAppOutbound(tenantId, threadId, content);
+
   // Insert the message
   const { data, error } = await supabase
     .from('messages')
@@ -41,6 +52,12 @@ export async function sendMessage(
     .update({ last_message_at: message.created_at } as never)
     .eq('id', threadId);
 
+  try {
+    await incrementMessageUsage(tenantId);
+  } catch (usageErr) {
+    console.warn('[messages-api] incrementMessageUsage failed, skipping:', usageErr);
+  }
+
   // Log message event via RPC (fail-safe – may not exist on external Supabase)
   try {
     await supabase.rpc('log_message_event' as never, {
@@ -54,4 +71,22 @@ export async function sendMessage(
   }
 
   return message;
+}
+
+/**
+ * Inserts an AI agent message via RPC (SECURITY DEFINER). Validates tenant, thread, channel, handoff and agent state server-side.
+ */
+export async function insertAiMessage(
+  tenantId: string,
+  threadId: string,
+  content: string,
+  client?: SupabaseClient
+): Promise<void> {
+  const db = client ?? supabase;
+  const { error } = await db.rpc('insert_ai_message' as never, {
+    _tenant_id: tenantId,
+    _thread_id: threadId,
+    _content: content,
+  } as never);
+  if (error) throw error;
 }
