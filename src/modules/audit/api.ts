@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 
 export async function getTenantAuditLogs(tenantId: string, page = 0, limit = 25) {
   const from = page * limit;

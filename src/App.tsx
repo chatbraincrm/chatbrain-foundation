@@ -13,6 +13,7 @@ import Signup from "@/pages/Signup";
 import ResetPassword from "@/pages/ResetPassword";
 import UpdatePassword from "@/pages/UpdatePassword";
 import AcceptInvite from "@/pages/AcceptInvite";
+import DebugSupabase from "@/pages/DebugSupabase";
 import Onboarding from "@/pages/Onboarding";
 import SelectTenant from "@/pages/SelectTenant";
 import Dashboard from "@/pages/Dashboard";
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/update-password" element={<UpdatePassword />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
+              <Route path="/debug/supabase" element={<DebugSupabase />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/onboarding" element={<Onboarding />} />

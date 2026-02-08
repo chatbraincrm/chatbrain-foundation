@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import type { Task, TaskWithRelations } from '@/types';
 
 export async function getTenantTasks(tenantId: string, filters?: { deal_id?: string; status?: string }): Promise<TaskWithRelations[]> {

@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import type { Tag, EntityTag } from '@/types';
 
 export async function getTenantTags(tenantId: string): Promise<Tag[]> {

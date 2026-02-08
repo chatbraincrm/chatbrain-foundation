@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import type { Tenant } from '@/types';
 
 export async function getTenantById(id: string): Promise<Tenant> {

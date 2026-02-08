@@ -2,7 +2,7 @@
  * Supabase connection health check.
  * Runs once on app startup to verify connectivity.
  */
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 
 export async function checkSupabaseConnection(): Promise<void> {
   try {
