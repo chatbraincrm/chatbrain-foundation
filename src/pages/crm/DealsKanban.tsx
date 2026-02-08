@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenant } from '@/lib/tenant-context';
 import { useAuth } from '@/lib/auth-context';
@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, GripVertical } from 'lucide-react';
+import { Plus, GripVertical, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { PipelineStage, DealWithRelations } from '@/types';
 
@@ -102,6 +102,7 @@ export default function DealsKanban() {
   const canWrite = can(membership?.role, 'crm:write');
   const [showCreate, setShowCreate] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
+  const [dealSearch, setDealSearch] = useState('');
   const [form, setForm] = useState({
     title: '', pipeline_id: '', stage_id: '', lead_id: '', company_id: '',
     value_cents: 0, owner_user_id: '',
@@ -197,6 +198,16 @@ export default function DealsKanban() {
     setShowCreate(true);
   };
 
+  const filteredDeals = useMemo(() => {
+    if (!dealSearch) return deals;
+    const q = dealSearch.toLowerCase();
+    return deals.filter((d: any) => 
+      d.title?.toLowerCase().includes(q) || 
+      d.leads?.name?.toLowerCase().includes(q) || 
+      d.companies?.name?.toLowerCase().includes(q)
+    );
+  }, [deals, dealSearch]);
+
   if (isLoading) return <div className="text-muted-foreground">Carregando...</div>;
 
   return (
@@ -213,69 +224,85 @@ export default function DealsKanban() {
             </Select>
           )}
         </div>
-        {canWrite && (
-          <Dialog open={showCreate} onOpenChange={setShowCreate}>
-            <DialogTrigger asChild>
-              <Button onClick={handleOpenCreate}><Plus className="h-4 w-4 mr-2" />Novo Negócio</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>Criar Negócio</DialogTitle></DialogHeader>
-              <form onSubmit={e => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Título *</Label>
-                  <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar negócios..."
+              value={dealSearch}
+              onChange={e => setDealSearch(e.target.value)}
+              className="pl-9 w-[220px]"
+            />
+            {dealSearch && (
+              <button onClick={() => setDealSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {canWrite && (
+            <Dialog open={showCreate} onOpenChange={setShowCreate}>
+              <DialogTrigger asChild>
+                <Button onClick={handleOpenCreate}><Plus className="h-4 w-4 mr-2" />Novo Negócio</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader><DialogTitle>Criar Negócio</DialogTitle></DialogHeader>
+                <form onSubmit={e => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Etapa</Label>
-                    <Select value={form.stage_id} onValueChange={v => setForm(f => ({ ...f, stage_id: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {stages.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Label>Título *</Label>
+                    <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Valor (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={form.value_cents / 100}
-                      onChange={e => setForm(f => ({ ...f, value_cents: Math.round(parseFloat(e.target.value || '0') * 100) }))}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Etapa</Label>
+                      <Select value={form.stage_id} onValueChange={v => setForm(f => ({ ...f, stage_id: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {stages.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Valor (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={form.value_cents / 100}
+                        onChange={e => setForm(f => ({ ...f, value_cents: Math.round(parseFloat(e.target.value || '0') * 100) }))}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Lead</Label>
-                    <Select value={form.lead_id} onValueChange={v => setForm(f => ({ ...f, lead_id: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {leads.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Lead</Label>
+                      <Select value={form.lead_id} onValueChange={v => setForm(f => ({ ...f, lead_id: v }))}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          {leads.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Responsável</Label>
+                      <Select value={form.owner_user_id} onValueChange={v => setForm(f => ({ ...f, owner_user_id: v }))}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          {members.map((m: any) => (
+                            <SelectItem key={m.user_id} value={m.user_id}>{m.profiles?.name || m.profiles?.email}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Responsável</Label>
-                    <Select value={form.owner_user_id} onValueChange={v => setForm(f => ({ ...f, owner_user_id: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {members.map((m: any) => (
-                          <SelectItem key={m.user_id} value={m.user_id}>{m.profiles?.name || m.profiles?.email}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button type="submit" className="w-full" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Criando...' : 'Criar Negócio'}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+                  <Button type="submit" className="w-full" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? 'Criando...' : 'Criar Negócio'}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-4">
@@ -283,7 +310,7 @@ export default function DealsKanban() {
           <StageColumn
             key={stage.id}
             stage={stage}
-            deals={deals}
+            deals={filteredDeals}
             onDrop={(dealId, stageId) => moveDealMutation.mutate({ dealId, stageId })}
             navigate={navigate}
           />

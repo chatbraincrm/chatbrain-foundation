@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenant } from '@/lib/tenant-context';
 import { useAuth } from '@/lib/auth-context';
@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Eye } from 'lucide-react';
+import { Plus, Trash2, Eye, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Leads() {
@@ -29,6 +29,8 @@ export default function Leads() {
   const canWrite = can(membership?.role, 'crm:write');
   const canDelete = can(membership?.role, 'crm:delete');
   const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [form, setForm] = useState({ name: '', email: '', phone: '', source: '', company_id: '' });
 
   const { data: leads = [], isLoading } = useQuery({
@@ -81,11 +83,20 @@ export default function Leads() {
 
   const statusLabel: Record<string, string> = { open: 'Aberto', qualified: 'Qualificado', converted: 'Convertido', lost: 'Perdido' };
 
+  const filteredLeads = useMemo(() => {
+    return leads.filter((lead: any) => {
+      const q = search.toLowerCase();
+      const matchesSearch = !q || lead.name?.toLowerCase().includes(q) || lead.email?.toLowerCase().includes(q) || lead.phone?.includes(q);
+      const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [leads, search, statusFilter]);
+
   if (isLoading) return <div className="text-muted-foreground">Carregando...</div>;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
         {canWrite && (
           <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -136,6 +147,33 @@ export default function Leads() {
         )}
       </div>
 
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, email ou telefone..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="open">Aberto</SelectItem>
+            <SelectItem value="qualified">Qualificado</SelectItem>
+            <SelectItem value="converted">Convertido</SelectItem>
+            <SelectItem value="lost">Perdido</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="rounded-lg border border-border">
         <Table>
           <TableHeader>
@@ -149,12 +187,14 @@ export default function Leads() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {leads.length === 0 ? (
+            {filteredLeads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nenhum lead encontrado</TableCell>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  {leads.length === 0 ? 'Nenhum lead encontrado' : 'Nenhum lead corresponde aos filtros'}
+                </TableCell>
               </TableRow>
             ) : (
-              leads.map((lead: any) => (
+              filteredLeads.map((lead: any) => (
                 <TableRow key={lead.id}>
                   <TableCell className="font-medium">{lead.name}</TableCell>
                   <TableCell className="text-muted-foreground">{lead.email || '-'}</TableCell>
