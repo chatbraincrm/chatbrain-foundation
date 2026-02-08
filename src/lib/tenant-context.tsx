@@ -15,7 +15,7 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [currentTenant, setCurrentTenantState] = useState<Tenant | null>(null);
   const [membership, setMembership] = useState<Membership | null>(null);
@@ -40,6 +40,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const fetchTenants = useCallback(async () => {
+    // Wait for auth to finish before making decisions
+    if (authLoading) return;
+
     if (!user) {
       setTenants([]);
       setCurrentTenantState(null);
@@ -75,7 +78,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(false);
-  }, [user, fetchMembership, persistActiveTenant]);
+  }, [user, authLoading, fetchMembership, persistActiveTenant]);
 
   const setCurrentTenant = useCallback((tenant: Tenant) => {
     setCurrentTenantState(tenant);
@@ -92,6 +95,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [fetchTenants]);
 
   useEffect(() => {
+    // Reset loading when user changes to prevent premature redirects
+    setLoading(true);
     fetchTenants();
   }, [fetchTenants]);
 
