@@ -4,6 +4,7 @@ import { useTenant } from '@/lib/tenant-context';
 import { useAuth } from '@/lib/auth-context';
 import { can } from '@/lib/rbac';
 import { getTenantDeals, createDeal, updateDeal } from '@/modules/crm/deals-api';
+import { getAllEntityTags } from '@/modules/crm/tags-api';
 import { getTenantPipelines, getPipelineStages } from '@/modules/crm/pipelines-api';
 import { getTenantLeads } from '@/modules/crm/leads-api';
 import { getTenantCompanies } from '@/modules/crm/companies-api';
@@ -23,7 +24,7 @@ import { Plus, GripVertical, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { PipelineStage, DealWithRelations } from '@/types';
 
-function DealCard({ deal, onClick }: { deal: DealWithRelations; onClick: () => void }) {
+function DealCard({ deal, tags, onClick }: { deal: DealWithRelations; tags?: any[]; onClick: () => void }) {
   const valueBRL = (deal.value_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: deal.currency });
   return (
     <div
@@ -37,6 +38,13 @@ function DealCard({ deal, onClick }: { deal: DealWithRelations; onClick: () => v
     >
       <p className="text-sm font-medium truncate">{deal.title}</p>
       {deal.value_cents > 0 && <p className="text-xs text-primary font-semibold">{valueBRL}</p>}
+      {tags && tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {tags.map((tag: any) => (
+            <span key={tag.id} className="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: tag.color || '#64748b' }}>{tag.name}</span>
+          ))}
+        </div>
+      )}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         {deal.leads && <span>{deal.leads.name}</span>}
         {deal.profiles && <span className="ml-auto">{deal.profiles.name || deal.profiles.email}</span>}
@@ -48,11 +56,13 @@ function DealCard({ deal, onClick }: { deal: DealWithRelations; onClick: () => v
 function StageColumn({
   stage,
   deals,
+  dealTagsMap,
   onDrop,
   navigate,
 }: {
   stage: PipelineStage;
   deals: DealWithRelations[];
+  dealTagsMap: Record<string, any[]>;
   onDrop: (dealId: string, stageId: string) => void;
   navigate: (path: string) => void;
 }) {
@@ -86,7 +96,7 @@ function StageColumn({
       </div>
       <div className="p-2 space-y-2 flex-1 min-h-[100px]">
         {stageDeals.map(deal => (
-          <DealCard key={deal.id} deal={deal} onClick={() => navigate(`/crm/deals/${deal.id}`)} />
+          <DealCard key={deal.id} deal={deal} tags={dealTagsMap[deal.id]} onClick={() => navigate(`/crm/deals/${deal.id}`)} />
         ))}
       </div>
     </div>
@@ -127,6 +137,21 @@ export default function DealsKanban() {
     queryFn: () => getTenantDeals(currentTenant!.id, activePipelineId),
     enabled: !!currentTenant && !!activePipelineId,
   });
+
+  const { data: dealTags = [] } = useQuery({
+    queryKey: ['entity-tags-all', 'deal', currentTenant?.id],
+    queryFn: () => getAllEntityTags(currentTenant!.id, 'deal'),
+    enabled: !!currentTenant,
+  });
+
+  const dealTagsMap = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    dealTags.forEach((et: any) => {
+      if (!map[et.entity_id]) map[et.entity_id] = [];
+      map[et.entity_id].push(et.tags);
+    });
+    return map;
+  }, [dealTags]);
 
   const { data: leads = [] } = useQuery({
     queryKey: ['leads', currentTenant?.id],
@@ -311,6 +336,7 @@ export default function DealsKanban() {
             key={stage.id}
             stage={stage}
             deals={filteredDeals}
+            dealTagsMap={dealTagsMap}
             onDrop={(dealId, stageId) => moveDealMutation.mutate({ dealId, stageId })}
             navigate={navigate}
           />
