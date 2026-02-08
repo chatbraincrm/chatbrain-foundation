@@ -4,7 +4,7 @@ import { useTenant } from '@/lib/tenant-context';
 import { useAuth } from '@/lib/auth-context';
 import { can } from '@/lib/rbac';
 import { getTenantDeals, createDeal, updateDeal } from '@/modules/crm/deals-api';
-import { getAllEntityTags } from '@/modules/crm/tags-api';
+import { getAllEntityTags, getTenantTags } from '@/modules/crm/tags-api';
 import { getTenantPipelines, getPipelineStages } from '@/modules/crm/pipelines-api';
 import { getTenantLeads } from '@/modules/crm/leads-api';
 import { getTenantCompanies } from '@/modules/crm/companies-api';
@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, GripVertical, Search, X } from 'lucide-react';
+import { Plus, GripVertical, Search, X, Tag as TagIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { PipelineStage, DealWithRelations } from '@/types';
 
@@ -113,6 +113,7 @@ export default function DealsKanban() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
   const [dealSearch, setDealSearch] = useState('');
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [form, setForm] = useState({
     title: '', pipeline_id: '', stage_id: '', lead_id: '', company_id: '',
     value_cents: 0, owner_user_id: '',
@@ -152,6 +153,19 @@ export default function DealsKanban() {
     });
     return map;
   }, [dealTags]);
+
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['tags', currentTenant?.id],
+    queryFn: () => getTenantTags(currentTenant!.id),
+    enabled: !!currentTenant,
+  });
+
+  const usedDealTagIds = useMemo(() => new Set(dealTags.map((et: any) => et.tag_id)), [dealTags]);
+  const filterableDealTags = useMemo(() => allTags.filter(t => usedDealTagIds.has(t.id)), [allTags, usedDealTagIds]);
+
+  const toggleTagFilter = (tagId: string) => {
+    setTagFilter(prev => prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]);
+  };
 
   const { data: leads = [] } = useQuery({
     queryKey: ['leads', currentTenant?.id],
@@ -224,14 +238,13 @@ export default function DealsKanban() {
   };
 
   const filteredDeals = useMemo(() => {
-    if (!dealSearch) return deals;
-    const q = dealSearch.toLowerCase();
-    return deals.filter((d: any) => 
-      d.title?.toLowerCase().includes(q) || 
-      d.leads?.name?.toLowerCase().includes(q) || 
-      d.companies?.name?.toLowerCase().includes(q)
-    );
-  }, [deals, dealSearch]);
+    return deals.filter((d: any) => {
+      const q = dealSearch.toLowerCase();
+      const matchesSearch = !q || d.title?.toLowerCase().includes(q) || d.leads?.name?.toLowerCase().includes(q) || d.companies?.name?.toLowerCase().includes(q);
+      const matchesTags = tagFilter.length === 0 || tagFilter.every(tagId => dealTagsMap[d.id]?.some((t: any) => t.id === tagId));
+      return matchesSearch && matchesTags;
+    });
+  }, [deals, dealSearch, tagFilter, dealTagsMap]);
 
   if (isLoading) return <div className="text-muted-foreground">Carregando...</div>;
 
@@ -329,6 +342,30 @@ export default function DealsKanban() {
           )}
         </div>
       </div>
+
+      {filterableDealTags.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <TagIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          {filterableDealTags.map((tag: any) => {
+            const active = tagFilter.includes(tag.id);
+            return (
+              <button
+                key={tag.id}
+                onClick={() => toggleTagFilter(tag.id)}
+                className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-all ${active ? 'text-white ring-2 ring-offset-1 ring-offset-background ring-primary' : 'text-white opacity-50 hover:opacity-80'}`}
+                style={{ backgroundColor: tag.color || '#64748b' }}
+              >
+                {tag.name}
+              </button>
+            );
+          })}
+          {tagFilter.length > 0 && (
+            <button onClick={() => setTagFilter([])} className="text-xs text-muted-foreground hover:text-foreground ml-1">
+              Limpar
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-4 overflow-x-auto pb-4">
         {stages.map(stage => (

@@ -4,7 +4,7 @@ import { useTenant } from '@/lib/tenant-context';
 import { useAuth } from '@/lib/auth-context';
 import { can } from '@/lib/rbac';
 import { getTenantLeads, createLead, deleteLead } from '@/modules/crm/leads-api';
-import { getAllEntityTags } from '@/modules/crm/tags-api';
+import { getAllEntityTags, getTenantTags } from '@/modules/crm/tags-api';
 import { getTenantCompanies } from '@/modules/crm/companies-api';
 import { createLeadSchema } from '@/lib/validators';
 import { createAuditLog } from '@/modules/audit/api';
@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Eye, Search, X } from 'lucide-react';
+import { Plus, Trash2, Eye, Search, X, Tag as TagIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Leads() {
@@ -32,6 +32,7 @@ export default function Leads() {
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [form, setForm] = useState({ name: '', email: '', phone: '', source: '', company_id: '' });
 
   const { data: leads = [], isLoading } = useQuery({
@@ -43,6 +44,12 @@ export default function Leads() {
   const { data: leadTags = [] } = useQuery({
     queryKey: ['entity-tags-all', 'lead', currentTenant?.id],
     queryFn: () => getAllEntityTags(currentTenant!.id, 'lead'),
+    enabled: !!currentTenant,
+  });
+
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['tags', currentTenant?.id],
+    queryFn: () => getTenantTags(currentTenant!.id),
     enabled: !!currentTenant,
   });
 
@@ -99,14 +106,23 @@ export default function Leads() {
 
   const statusLabel: Record<string, string> = { open: 'Aberto', qualified: 'Qualificado', converted: 'Convertido', lost: 'Perdido' };
 
+  // Tags that are actually used on leads (for filter options)
+  const usedTagIds = useMemo(() => new Set(leadTags.map((et: any) => et.tag_id)), [leadTags]);
+  const filterableTags = useMemo(() => allTags.filter(t => usedTagIds.has(t.id)), [allTags, usedTagIds]);
+
+  const toggleTagFilter = (tagId: string) => {
+    setTagFilter(prev => prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]);
+  };
+
   const filteredLeads = useMemo(() => {
     return leads.filter((lead: any) => {
       const q = search.toLowerCase();
       const matchesSearch = !q || lead.name?.toLowerCase().includes(q) || lead.email?.toLowerCase().includes(q) || lead.phone?.includes(q);
       const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesTags = tagFilter.length === 0 || tagFilter.every(tagId => tagsByLeadId[lead.id]?.some((t: any) => t.id === tagId));
+      return matchesSearch && matchesStatus && matchesTags;
     });
-  }, [leads, search, statusFilter]);
+  }, [leads, search, statusFilter, tagFilter, tagsByLeadId]);
 
   if (isLoading) return <div className="text-muted-foreground">Carregando...</div>;
 
@@ -189,6 +205,30 @@ export default function Leads() {
           </SelectContent>
         </Select>
       </div>
+
+      {filterableTags.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <TagIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          {filterableTags.map((tag: any) => {
+            const active = tagFilter.includes(tag.id);
+            return (
+              <button
+                key={tag.id}
+                onClick={() => toggleTagFilter(tag.id)}
+                className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-all ${active ? 'text-white ring-2 ring-offset-1 ring-offset-background ring-primary' : 'text-white opacity-50 hover:opacity-80'}`}
+                style={{ backgroundColor: tag.color || '#64748b' }}
+              >
+                {tag.name}
+              </button>
+            );
+          })}
+          {tagFilter.length > 0 && (
+            <button onClick={() => setTagFilter([])} className="text-xs text-muted-foreground hover:text-foreground ml-1">
+              Limpar
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="rounded-lg border border-border">
         <Table>
