@@ -34,6 +34,7 @@ src/
 │   ├── threads.ts
 │   ├── thread-participants.ts
 │   ├── messages.ts
+│   ├── thread-reads.ts
 │   └── index.ts
 ├── lib/                # Infraestrutura (auth, tenant, rbac, validators)
 ├── modules/            # Camada de dados (API/repository por domínio)
@@ -53,7 +54,8 @@ src/
 │       ├── channels-api.ts
 │       ├── threads-api.ts
 │       ├── messages-api.ts
-│       └── participants-api.ts
+│       ├── participants-api.ts
+│       └── unread-api.ts
 ├── components/         # Componentes de UI
 │   ├── inbox/          # Inbox components
 │   │   ├── CreateThreadDialog.tsx
@@ -98,6 +100,30 @@ npx drizzle-kit studio
 2. Execute `npx drizzle-kit generate` para gerar a migration SQL
 3. Revise a migration gerada em `drizzle/`
 4. Execute `npx drizzle-kit migrate` para aplicar
+
+## Seed de Desenvolvimento
+
+Um script de seed opcional está disponível para criar dados demo em ambiente de dev.
+
+### O que o seed cria
+
+- **Tenant Demo** (`slug: demo`) com:
+  - Canal "Interno"
+  - Pipeline padrão com 5 estágios (Novo → Contato feito → Proposta → Negociação → Fechado)
+  - Lead demo (Maria Silva)
+  - Thread demo vinculada à lead
+  - Mensagem de boas-vindas
+
+### Como rodar
+
+```bash
+# Defina as variáveis de ambiente e execute
+SUPABASE_URL=https://xxx.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=xxx \
+npx tsx scripts/seed-dev.ts
+```
+
+> ⚠️ O script usa a **service role key** e só deve ser usado em desenvolvimento. O script é idempotente — rodar múltiplas vezes não duplica dados.
 
 ## Segurança
 
@@ -158,6 +184,17 @@ O módulo Inbox é um sistema centralizado de conversas, projetado para ser exte
   - Constraint `UNIQUE(thread_id, user_id)`
 - `messages` — Mensagens com `sender_type` (user/system/external)
   - Realtime habilitado para atualização ao vivo no ThreadDetail
+- `thread_reads` — Rastreia última leitura por usuário por thread
+  - Constraint `UNIQUE(thread_id, user_id)`
+  - Usado para calcular contadores de mensagens não lidas
+
+### Mensagens Não Lidas
+
+- **`get_unread_counts(_tenant_id)`** — RPC que retorna `(thread_id, unread_count)` para o usuário autenticado (exclui mensagens próprias)
+- **`mark_thread_read(_tenant_id, _thread_id)`** — RPC que marca thread como lida (upsert em `thread_reads`)
+- **Sidebar**: badge com total de não lidas no link "Conversas"
+- **Lista de threads**: badge individual por thread + destaque visual (negrito + fundo sutil)
+- **Auto-mark**: ao abrir thread e ao receber mensagens via Realtime enquanto visualiza
 
 ### RLS Inbox
 
