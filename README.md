@@ -105,9 +105,9 @@ Script de seed para popular o banco com dados demo em ambiente de desenvolviment
 
 ```bash
 # Opção 1: Variáveis inline
-SUPABASE_URL=https://xxx.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=xxx \
-SUPABASE_PUBLISHABLE_KEY=xxx \
+LOVABLE_SUPABASE_URL=https://xxx.supabase.co \
+LOVABLE_SUPABASE_SERVICE_ROLE_KEY=xxx \
+LOVABLE_SUPABASE_ANON_KEY=xxx \
 npx tsx scripts/seed-dev.ts
 
 # Opção 2: Via shell script (carrega .env.local automaticamente)
@@ -117,11 +117,11 @@ chmod +x scripts/seed-dev.sh
 
 ### Variáveis de ambiente necessárias
 
-| Variável | Alternativa | Obrigatória |
-|----------|-------------|-------------|
-| `SUPABASE_URL` | `VITE_SUPABASE_URL` | ✅ |
-| `SUPABASE_SERVICE_ROLE_KEY` | — | ✅ |
-| `SUPABASE_PUBLISHABLE_KEY` | `VITE_SUPABASE_PUBLISHABLE_KEY` | ✅ |
+| Variável | Obrigatória |
+|----------|-------------|
+| `LOVABLE_SUPABASE_URL` | ✅ |
+| `LOVABLE_SUPABASE_SERVICE_ROLE_KEY` | ✅ |
+| `LOVABLE_SUPABASE_ANON_KEY` | ✅ |
 
 > ⚠️ O script usa a **service role key** e deve ser usado **somente em desenvolvimento**.
 
