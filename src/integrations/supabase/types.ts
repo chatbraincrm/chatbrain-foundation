@@ -812,6 +812,52 @@ export type Database = {
           },
         ]
       }
+      thread_reads: {
+        Row: {
+          id: string
+          last_read_at: string
+          tenant_id: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_read_at?: string
+          tenant_id: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_read_at?: string
+          tenant_id?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_reads_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "thread_reads_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "thread_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       threads: {
         Row: {
           assigned_user_id: string | null
@@ -894,6 +940,13 @@ export type Database = {
         Args: { _name: string; _slug: string }
         Returns: Json
       }
+      get_unread_counts: {
+        Args: { _tenant_id: string }
+        Returns: {
+          thread_id: string
+          unread_count: number
+        }[]
+      }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
       has_tenant_role: {
         Args: {
@@ -942,6 +995,10 @@ export type Database = {
           _tenant_id: string
           _thread_id: string
         }
+        Returns: undefined
+      }
+      mark_thread_read: {
+        Args: { _tenant_id: string; _thread_id: string }
         Returns: undefined
       }
     }

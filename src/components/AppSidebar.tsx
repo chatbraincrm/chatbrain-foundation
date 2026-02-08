@@ -18,6 +18,7 @@ import {
   GitBranch, UserCircle, Briefcase, CheckSquare, Building, Tag, Inbox,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useUnreadCounts } from "@/hooks/use-unread-counts";
 
 const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: Permission | null }[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, permission: null },
@@ -44,6 +45,7 @@ export function AppSidebar() {
   const { currentTenant, membership } = useTenant();
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const { totalUnread } = useUnreadCounts();
 
   const handleSignOut = async () => {
     await signOut();
@@ -132,7 +134,12 @@ export function AppSidebar() {
                         activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
-                        <span>{item.title}</span>
+                        <span className="flex-1">{item.title}</span>
+                        {item.url === '/inbox' && totalUnread > 0 && (
+                          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                            {totalUnread > 99 ? '99+' : totalUnread}
+                          </span>
+                        )}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

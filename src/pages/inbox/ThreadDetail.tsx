@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { can } from '@/lib/rbac';
 import { getThread, assignThread, closeThread, reopenThread } from '@/modules/inbox/threads-api';
 import { getThreadMessages, sendMessage } from '@/modules/inbox/messages-api';
+import { markThreadRead } from '@/modules/inbox/unread-api';
 import { createAuditLog } from '@/modules/audit/api';
 import { logActivityEvent } from '@/modules/crm/timeline-api';
 import { sendMessageSchema } from '@/lib/validators';
@@ -69,9 +70,17 @@ export default function ThreadDetail() {
     enabled: !!id,
   });
 
+  // Mark thread as read when opened or when new messages arrive
+  useEffect(() => {
+    if (!id || !currentTenant) return;
+    markThreadRead(currentTenant.id, id).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['unread-counts', currentTenant.id] });
+    }).catch(() => {/* ignore */});
+  }, [id, currentTenant, messages.length, queryClient]);
+
   // Realtime subscription for new messages
   useEffect(() => {
-    if (!id) return;
+    if (!id || !currentTenant) return;
     const channel = supabase
       .channel(`messages-${id}`)
       .on(
@@ -86,6 +95,10 @@ export default function ThreadDetail() {
           queryClient.invalidateQueries({ queryKey: ['thread-messages', id] });
           queryClient.invalidateQueries({ queryKey: ['thread', id] });
           queryClient.invalidateQueries({ queryKey: ['thread-last-message', id] });
+          // Mark as read since user is viewing
+          markThreadRead(currentTenant.id, id!).then(() => {
+            queryClient.invalidateQueries({ queryKey: ['unread-counts', currentTenant.id] });
+          }).catch(() => {/* ignore */});
         }
       )
       .subscribe();
@@ -93,7 +106,7 @@ export default function ThreadDetail() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id, queryClient]);
+  }, [id, currentTenant, queryClient]);
 
   // Auto-scroll to bottom
   useEffect(() => {
