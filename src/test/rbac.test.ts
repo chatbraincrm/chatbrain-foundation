@@ -55,6 +55,9 @@ describe('can', () => {
     expect(can('admin', 'audit:read')).toBe(true);
     expect(can('admin', 'tenant:read')).toBe(true);
     expect(can('admin', 'tenant:write')).toBe(true);
+    expect(can('admin', 'crm:read')).toBe(true);
+    expect(can('admin', 'crm:write')).toBe(true);
+    expect(can('admin', 'crm:delete')).toBe(true);
   });
 
   it('manager can read but not write members', () => {
@@ -69,11 +72,23 @@ describe('can', () => {
     expect(can('manager', 'invites:write')).toBe(false);
   });
 
+  it('manager has full CRM access', () => {
+    expect(can('manager', 'crm:read')).toBe(true);
+    expect(can('manager', 'crm:write')).toBe(true);
+    expect(can('manager', 'crm:delete')).toBe(true);
+  });
+
   it('agent has minimal permissions', () => {
     expect(can('agent', 'members:read')).toBe(true);
     expect(can('agent', 'tenant:read')).toBe(true);
     expect(can('agent', 'members:write')).toBe(false);
     expect(can('agent', 'audit:read')).toBe(false);
     expect(can('agent', 'invites:read')).toBe(false);
+  });
+
+  it('agent can read and write CRM but not delete', () => {
+    expect(can('agent', 'crm:read')).toBe(true);
+    expect(can('agent', 'crm:write')).toBe(true);
+    expect(can('agent', 'crm:delete')).toBe(false);
   });
 });
