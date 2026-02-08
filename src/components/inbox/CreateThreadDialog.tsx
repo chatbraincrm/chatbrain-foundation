@@ -50,23 +50,23 @@ export default function CreateThreadDialog({
   const [relatedEntity, setRelatedEntity] = useState<string>('none');
   const [relatedEntityId, setRelatedEntityId] = useState('');
 
-  // Load entities for relationship
-  const { data: leads = [] } = useQuery({
+  // Load entities eagerly when dialog is open to avoid timing issues
+  const { data: leads = [], isLoading: leadsLoading } = useQuery({
     queryKey: ['leads', currentTenant?.id],
     queryFn: () => getTenantLeads(currentTenant!.id),
-    enabled: !!currentTenant && relatedEntity === 'lead',
+    enabled: !!currentTenant && open,
   });
 
-  const { data: deals = [] } = useQuery({
+  const { data: deals = [], isLoading: dealsLoading } = useQuery({
     queryKey: ['deals', currentTenant?.id],
     queryFn: () => getTenantDeals(currentTenant!.id),
-    enabled: !!currentTenant && relatedEntity === 'deal',
+    enabled: !!currentTenant && open,
   });
 
-  const { data: companies = [] } = useQuery({
+  const { data: companies = [], isLoading: companiesLoading } = useQuery({
     queryKey: ['companies', currentTenant?.id],
     queryFn: () => getTenantCompanies(currentTenant!.id),
-    enabled: !!currentTenant && relatedEntity === 'company',
+    enabled: !!currentTenant && open,
   });
 
   const entityOptions = relatedEntity === 'lead'
@@ -76,6 +76,11 @@ export default function CreateThreadDialog({
     : relatedEntity === 'company'
     ? companies.map(c => ({ id: c.id, label: c.name }))
     : [];
+
+  const entityLoading = relatedEntity === 'lead' ? leadsLoading
+    : relatedEntity === 'deal' ? dealsLoading
+    : relatedEntity === 'company' ? companiesLoading
+    : false;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -195,23 +200,31 @@ export default function CreateThreadDialog({
             </Select>
           </div>
 
-          {relatedEntity !== 'none' && entityOptions.length > 0 && (
+          {relatedEntity !== 'none' && (
             <div className="space-y-2">
               <label className="text-sm font-medium">
                 {relatedEntity === 'lead' ? 'Lead' : relatedEntity === 'deal' ? 'Negócio' : 'Empresa'}
               </label>
-              <Select value={relatedEntityId} onValueChange={setRelatedEntityId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {entityOptions.map(opt => (
-                    <SelectItem key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {entityLoading ? (
+                <p className="text-sm text-muted-foreground py-2">Carregando...</p>
+              ) : entityOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  Nenhum registro encontrado.
+                </p>
+              ) : (
+                <Select value={relatedEntityId} onValueChange={setRelatedEntityId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {entityOptions.map(opt => (
+                      <SelectItem key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           )}
 
