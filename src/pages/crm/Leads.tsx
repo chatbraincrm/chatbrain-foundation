@@ -4,6 +4,7 @@ import { useTenant } from '@/lib/tenant-context';
 import { useAuth } from '@/lib/auth-context';
 import { can } from '@/lib/rbac';
 import { getTenantLeads, createLead, deleteLead } from '@/modules/crm/leads-api';
+import { getAllEntityTags } from '@/modules/crm/tags-api';
 import { getTenantCompanies } from '@/modules/crm/companies-api';
 import { createLeadSchema } from '@/lib/validators';
 import { createAuditLog } from '@/modules/audit/api';
@@ -38,6 +39,21 @@ export default function Leads() {
     queryFn: () => getTenantLeads(currentTenant!.id),
     enabled: !!currentTenant,
   });
+
+  const { data: leadTags = [] } = useQuery({
+    queryKey: ['entity-tags-all', 'lead', currentTenant?.id],
+    queryFn: () => getAllEntityTags(currentTenant!.id, 'lead'),
+    enabled: !!currentTenant,
+  });
+
+  const tagsByLeadId = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    leadTags.forEach((et: any) => {
+      if (!map[et.entity_id]) map[et.entity_id] = [];
+      map[et.entity_id].push(et.tags);
+    });
+    return map;
+  }, [leadTags]);
 
   const { data: companies = [] } = useQuery({
     queryKey: ['companies', currentTenant?.id],
@@ -196,7 +212,18 @@ export default function Leads() {
             ) : (
               filteredLeads.map((lead: any) => (
                 <TableRow key={lead.id}>
-                  <TableCell className="font-medium">{lead.name}</TableCell>
+                  <TableCell>
+                    <div>
+                      <span className="font-medium">{lead.name}</span>
+                      {tagsByLeadId[lead.id]?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {tagsByLeadId[lead.id].map((tag: any) => (
+                            <span key={tag.id} className="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: tag.color || '#64748b' }}>{tag.name}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{lead.email || '-'}</TableCell>
                   <TableCell className="text-muted-foreground">{lead.phone || '-'}</TableCell>
                   <TableCell className="text-muted-foreground">{lead.source || '-'}</TableCell>

@@ -4,6 +4,7 @@ import { useTenant } from '@/lib/tenant-context';
 import { can } from '@/lib/rbac';
 import { getLead, updateLead } from '@/modules/crm/leads-api';
 import { getEntityTimeline } from '@/modules/crm/timeline-api';
+import EntityTagManager from '@/components/crm/EntityTagManager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,6 +80,10 @@ export default function LeadDetail() {
                     <Badge variant="outline" className="capitalize">{lead.status}</Badge>
                   )}
                 </div>
+              </div>
+              <div className="pt-3 border-t border-border mt-3">
+                <span className="text-sm text-muted-foreground mr-2">Tags:</span>
+                <EntityTagManager entity="lead" entityId={lead.id} />
               </div>
             </CardContent>
           </Card>

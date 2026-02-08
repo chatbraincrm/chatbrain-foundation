@@ -9,6 +9,7 @@ import { getTenantTasks, createTask, updateTask } from '@/modules/crm/tasks-api'
 import { getEntityTimeline, logActivityEvent } from '@/modules/crm/timeline-api';
 import { createAuditLog } from '@/modules/audit/api';
 import { createTaskSchema } from '@/lib/validators';
+import EntityTagManager from '@/components/crm/EntityTagManager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -119,6 +120,10 @@ export default function DealDetail() {
                 <div><span className="text-muted-foreground">Lead:</span> {deal.leads?.name || '-'}</div>
                 <div><span className="text-muted-foreground">Empresa:</span> {deal.companies?.name || '-'}</div>
                 <div><span className="text-muted-foreground">Responsável:</span> {deal.profiles?.name || deal.profiles?.email || '-'}</div>
+              </div>
+              <div className="pt-3 border-t border-border mt-3">
+                <span className="text-sm text-muted-foreground mr-2">Tags:</span>
+                <EntityTagManager entity="deal" entityId={deal.id} />
               </div>
             </CardContent>
           </Card>

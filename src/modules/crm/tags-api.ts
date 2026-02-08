@@ -37,6 +37,16 @@ export async function getEntityTags(tenantId: string, entity: string, entityId: 
   return (data || []) as any;
 }
 
+export async function getAllEntityTags(tenantId: string, entity: string): Promise<(EntityTag & { tags: Tag })[]> {
+  const { data, error } = await supabase
+    .from('entity_tags')
+    .select('*, tags(*)')
+    .eq('tenant_id', tenantId)
+    .eq('entity', entity);
+  if (error) throw error;
+  return (data || []) as any;
+}
+
 export async function addEntityTag(tenantId: string, tagId: string, entity: string, entityId: string): Promise<void> {
   const { error } = await supabase
     .from('entity_tags')
