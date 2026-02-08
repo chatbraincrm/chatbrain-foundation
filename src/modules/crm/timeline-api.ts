@@ -20,12 +20,16 @@ export async function logActivityEvent(
   action: string,
   metadata?: Record<string, unknown>
 ): Promise<void> {
-  const { error } = await supabase.rpc('log_activity_event' as never, {
-    _tenant_id: tenantId,
-    _entity: entity,
-    _entity_id: entityId,
-    _action: action,
-    _metadata: metadata ?? null,
-  } as never);
-  if (error) throw error;
+  try {
+    const { error } = await supabase.rpc('log_activity_event' as never, {
+      _tenant_id: tenantId,
+      _entity: entity,
+      _entity_id: entityId,
+      _action: action,
+      _metadata: metadata ?? null,
+    } as never);
+    if (error) throw error;
+  } catch (err) {
+    console.warn('[timeline] log_activity_event RPC unavailable, skipping:', err);
+  }
 }
