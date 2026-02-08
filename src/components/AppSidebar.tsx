@@ -13,7 +13,10 @@ import { NavLink } from "@/components/NavLink";
 import { useTenant } from "@/lib/tenant-context";
 import { useAuth } from "@/lib/auth-context";
 import { can, type Permission } from "@/lib/rbac";
-import { LayoutDashboard, Users, Mail, FileText, Settings, Building2, LogOut } from "lucide-react";
+import {
+  LayoutDashboard, Users, Mail, FileText, Settings, Building2, LogOut,
+  GitBranch, UserCircle, Briefcase, CheckSquare, Building,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: Permission | null }[] = [
@@ -22,6 +25,14 @@ const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; per
   { title: "Convites", url: "/invites", icon: Mail, permission: 'invites:read' },
   { title: "Auditoria", url: "/audit", icon: FileText, permission: 'audit:read' },
   { title: "Configurações", url: "/settings", icon: Settings, permission: 'tenant:read' },
+];
+
+const crmItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: Permission }[] = [
+  { title: "Negócios", url: "/crm/deals", icon: Briefcase, permission: 'crm:read' },
+  { title: "Leads", url: "/crm/leads", icon: UserCircle, permission: 'crm:read' },
+  { title: "Empresas", url: "/crm/companies", icon: Building, permission: 'crm:read' },
+  { title: "Tarefas", url: "/crm/tasks", icon: CheckSquare, permission: 'crm:read' },
+  { title: "Pipelines", url: "/crm/pipelines", icon: GitBranch, permission: 'crm:read' },
 ];
 
 export function AppSidebar() {
@@ -34,8 +45,12 @@ export function AppSidebar() {
     navigate('/login');
   };
 
-  const visibleItems = mainItems.filter(
+  const visibleMain = mainItems.filter(
     item => !item.permission || can(membership?.role, item.permission)
+  );
+
+  const visibleCrm = crmItems.filter(
+    item => can(membership?.role, item.permission)
   );
 
   return (
@@ -47,7 +62,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleItems.map((item) => (
+              {visibleMain.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -65,6 +80,32 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {visibleCrm.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider px-3 py-2">
+              CRM
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleCrm.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">

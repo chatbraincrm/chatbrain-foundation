@@ -4,7 +4,8 @@ export type Permission =
   | 'members:read' | 'members:write' | 'members:delete'
   | 'invites:read' | 'invites:write' | 'invites:delete'
   | 'audit:read'
-  | 'tenant:read' | 'tenant:write';
+  | 'tenant:read' | 'tenant:write'
+  | 'crm:read' | 'crm:write' | 'crm:delete';
 
 const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   admin: [
@@ -12,16 +13,19 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'invites:read', 'invites:write', 'invites:delete',
     'audit:read',
     'tenant:read', 'tenant:write',
+    'crm:read', 'crm:write', 'crm:delete',
   ],
   manager: [
     'members:read',
     'invites:read',
     'audit:read',
     'tenant:read',
+    'crm:read', 'crm:write', 'crm:delete',
   ],
   agent: [
     'members:read',
     'tenant:read',
+    'crm:read', 'crm:write',
   ],
 };
 
