@@ -10,7 +10,7 @@
  *  - Mensagem demo
  *
  * Uso:
- *   SUPABASE_URL=https://xxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=xxx npx tsx scripts/seed-dev.ts
+ *   LOVABLE_SUPABASE_URL=https://xxx.supabase.co LOVABLE_SUPABASE_SERVICE_ROLE_KEY=xxx npx tsx scripts/seed-dev.ts
  *
  * ⚠️  Usa service_role key — nunca exponha em produção.
  * ⚠️  Aborta se NODE_ENV === 'production'.
@@ -31,23 +31,23 @@ if (process.env.NODE_ENV === 'production') {
 // Config
 // ---------------------------------------------------------------------------
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANON_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = process.env.LOVABLE_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.LOVABLE_SUPABASE_SERVICE_ROLE_KEY;
+const ANON_KEY = process.env.LOVABLE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error(
     '❌  Variáveis obrigatórias não definidas.\n' +
-    '   SUPABASE_URL (ou VITE_SUPABASE_URL) e SUPABASE_SERVICE_ROLE_KEY são necessárias.\n\n' +
+    '   LOVABLE_SUPABASE_URL e LOVABLE_SUPABASE_SERVICE_ROLE_KEY são necessárias.\n\n' +
     '   Exemplo:\n' +
-    '   SUPABASE_URL=https://xxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=xxx npx tsx scripts/seed-dev.ts'
+    '   LOVABLE_SUPABASE_URL=https://xxx.supabase.co LOVABLE_SUPABASE_SERVICE_ROLE_KEY=xxx npx tsx scripts/seed-dev.ts'
   );
   process.exit(1);
 }
 
 if (!ANON_KEY) {
   console.error(
-    '❌  SUPABASE_PUBLISHABLE_KEY (ou VITE_SUPABASE_PUBLISHABLE_KEY) é necessária para chamar RPCs autenticadas.'
+    '❌  LOVABLE_SUPABASE_ANON_KEY é necessária para chamar RPCs autenticadas.'
   );
   process.exit(1);
 }
